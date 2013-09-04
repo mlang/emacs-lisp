@@ -344,8 +344,5 @@ Otherwise, determine the best station via latitude/longitude."
       (when (> count 0)
 	(/ (float temp-sum) count)))))
 
-(defvar heidelberger-schloss-latitude (+ 49 (/ 24 60.0) (/ 581 3600.0)))
-(defvar heidelberger-schloss-longitude (+ 8 (/ 42 60.0) (/ 923 3600.0)))
-
 (provide 'weather)
 ;;; weather.el ends here
