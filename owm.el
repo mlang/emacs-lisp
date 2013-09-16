@@ -27,11 +27,22 @@
 (require 'json)
 (require 'url)
 
-(defvar owm-weather-city-name-url "http://api.openweathermap.org/data/2.6/weather?q=%s&units=metric")
-(defvar owm-weather-city-id-url "http://api.openweathermap.org/data/2.6/weather?id=%d&units=metric")
-(defvar owm-weather-location-url "http://api.openweathermap.org/data/2.6/weather?lat=%f&lon=&f&units=metric")
+(defvar owm-weather-city-name-url
+  "http://api.openweathermap.org/data/2.5/weather?q=%s&units=metric")
+(defvar owm-weather-city-id-url
+  "http://api.openweathermap.org/data/2.5/weather?id=%d&units=metric")
+(defvar owm-weather-location-url
+  "http://api.openweathermap.org/data/2.5/weather?lat=%f&lon=&f&units=metric")
+(defvar owm-find-city-name-url
+  "http://api.openweathermap.org/data/2.5/find?q=%s&cnt=%d&units=metric")
+(defvar owm-find-location-url
+  "http://api.openweathermap.org/data/2.5/find?lat=%f&lon=&f&units=metric")
 
 (defun owm-weather (item)
+  "Request current weather for ITEM.
+If ITEM is a string, it is treated as a city name.
+If ITEM is a cons (latitude . longitude) it is treated as a location.
+Finally, if ITEM is an integer, it is treated as a city id."
   (with-temp-buffer
     (url-insert-file-contents
      (cond
@@ -41,6 +52,20 @@
        (format owm-weather-city-id-url item))
       ((and (consp item) (numberp (car item)) (numberp (cdr item)))
        (format owm-weather-location-url (car item) (cdr item)))
+      (t (error "Unknown search item"))))
+    (json-read)))
+
+(defun owm-find (item &optional count)
+  "Find current weather for ITEM.
+If ITEM is a string, it is treated as a part of a city name.
+If ITEM is a cons (latitude . longitude) it is treated as a location."
+  (with-temp-buffer
+    (url-insert-file-contents
+     (cond
+      ((stringp item)
+       (format owm-find-city-name-url item (or count 10)))
+      ((and (consp item) (numberp (car item)) (numberp (cdr item)))
+       (format owm-find-location-url (car item) (cdr item)))
       (t (error "Unknown search item"))))
     (json-read)))
 
