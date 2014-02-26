@@ -44,6 +44,12 @@
   "Get the profile of a particular USER."
   (github-get-json (concat "/users/" user)))
 
+(defun github-following (user)
+  (github-get-json (concat "/users/" user "/following")))
+
+(defun github-followers (user)
+  (github-get-json (concat "/users/" user "/followers")))
+
 (defun github-received-events (user)
   (github-get-json (concat "/users/" user "/received_events")))
 
