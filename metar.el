@@ -37,6 +37,9 @@
   "Variable containing (cached) METAR station information.
 Use the function `metar-stations' to get the actual station list.")
 
+(defvar metar-temperature-unit "C"
+  "Variable containing the desired temperature unit (valid = C or F).")
+
 (defun metar-stations ()
   "Retrieve a list of METAR stations.
 Results are cached in variable `metar-stations'.
@@ -254,6 +257,17 @@ If no record was found for STATION, nil is returned."
 	    (cons 'humidity (when tempitem (round (magnus-formula-humidity-from-dewpoint temperature dewpoint))))
 	    (cons 'pressure pressure)))))
 
+(defun celsius_to_fahrenheit (temperature)
+  "Convert Celsius to Fahrenheit."
+  (+ 32 (/ (* 9 temperature) 5))) ; 9/5*C + 32
+
+(defun temperature-converted (temperature)
+    "Convert celsius temperature to fahrenheit if metar-temperature-unit
+     is \"F\", otherwise return unmodified"
+    (if (string= metar-temperature-unit "C")
+	temperature
+      (celsius_to_fahrenheit temperature)))
+
 (defun magnus-formula-humidity-from-dewpoint (temperature dewpoint)
   "Calculate relative humidity (in %) from TEMPERATURE and DEWPOINT (in
 degrees celsius)."
@@ -292,10 +306,11 @@ Otherwise, determine the best station via latitude/longitude."
       (setq station (read-string "Enter station code: "))))
     (let ((info (metar-decode (metar-get-record station))))
       (if info
-	  (message "%d minutes ago at %s: %d°C, %d%% relative humidity"
+	  (message "%d minutes ago at %s: %d°%s, %d%% relative humidity"
 		   (/ (truncate (float-time (cdr (assoc 'time-since info)))) 60)
 		   (or (metar-stations-get (cdr (assoc 'station info)) 'name) (cdr (assoc 'station info)))
-		   (cdr (assoc 'temperature info))
+		   (temperature-converted (cdr (assoc 'temperature info)))
+		   metar-temperature-unit
 		   (cdr (assoc 'humidity info)))
 	(message "No weather information found, sorry.")))))
   
@@ -337,8 +352,9 @@ Otherwise, determine the best station via latitude/longitude."
 	(message "Average temperature in %s is %s"
 		 country
 		 (if (> count 0)
-		     (format "%.1f°C (%d stations)"
-			     (/ (float temp-sum) count)
+		     (format "%.1f°%s (%d stations)"
+			     (temperature-converted (/ (float temp-sum) count))
+			     metar-temperature-unit
 			     count)
 		   "unknown"))
       (when (> count 0)
