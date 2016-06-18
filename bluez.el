@@ -237,13 +237,14 @@ of all known devices."
 
 (define-derived-mode bluez-device-list-mode tabulated-list-mode "BlueZ"
   "Major mode for displaying Bluetooth remote devices."
-  (setq tabulated-list-format [("Name" 24 t) ("Alias" 24 t)])
+  (setq tabulated-list-format [("Name" 24 t) ("Alias" 24 t) ("Address" 20 t)])
   (setq tabulated-list-entries
 	(mapcar
 	 (lambda (device-path)
-	   (list (bluez-device-address device-path)
+	   (list device-path
 		 (vector (bluez-device-name device-path)
-			 (bluez-device-alias device-path))))
+			 (bluez-device-alias device-path)
+			 (bluez-device-address device-path))))
 	 (bluez-device-paths)))
   (tabulated-list-init-header)
   (tabulated-list-print))
@@ -262,6 +263,7 @@ of all known devices."
                 (dolist (property-entry (cadr iface-entry) (cadr iface-entry))
                   (setcdr property-entry (caadr property-entry))))
       (setcdr iface-entry nil)))
+
   (when (buffer-live-p (get-buffer "*Bluetooth Devices*"))
     (with-current-buffer (get-buffer "*Bluetooth Devices*")
       (let ((device-properties (cdr (assoc bluez-interface-device interfaces-and-properties))))
@@ -270,9 +272,11 @@ of all known devices."
 		(name (cdr (assoc "Name" device-properties)))
 		(alias (cdr (assoc "Alias" device-properties))))
 	    (when (and address name alias)
-	      (push (list address
-			  (vector name alias))
-		    tabulated-list-entries)
+	      (let ((entry (assoc path tabulated-list-entries))
+		    (data (vector name alias address)))
+		(if entry
+		    (setf (cadr entry) data)
+		(push (list path data) tabulated-list-entries)))
 	      (tabulated-list-revert)))))))
   (message "%s %S" path interfaces-and-properties))
 
@@ -291,10 +295,11 @@ of all known devices."
 (defun bluez-stop-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
-    (bluez-adapter-stop-discovery adapter-path))
+    (when (bluez-adapter-discovering-p adapter-path)
+      (bluez-adapter-stop-discovery adapter-path)))
   (when bluez-interfaces-added-signal
     (dbus-unregister-object bluez-interfaces-added-signal)
-    bluez-interfaces-added-signal))
+    (setq bluez-interfaces-added-signal nil)))
 
 (provide 'bluez)
 ;;; bluez.el ends here
