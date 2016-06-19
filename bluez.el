@@ -26,8 +26,10 @@
 
 (require 'cl)
 (require 'dbus)
+(require 'tabulated-list)
 
 (defconst bluez-service "org.bluez")
+(defconst bluez-path "/org/bluez")
 (defconst bluez-interface-adapter "org.bluez.Adapter1")
 (defconst bluez-interface-device "org.bluez.Device1")
 (defconst bluez-interface-network "org.bluez.Network1")
@@ -45,9 +47,9 @@
 ;;; org.bluez.Adapter1
 
 (defun bluez-adapter-path (adapter)
-  (if (string-prefix-p "/org/bluez" adapter)
+  (if (string-prefix-p bluez-path adapter)
       adapter
-    (concat "/org/bluez/" adapter)))
+    (concat bluez-path "/" adapter)))
 
 (defun bluez-adapter-paths ()
   (mapcar #'car
@@ -66,8 +68,8 @@
   `(setf (bluez-property bluez-interface-adapter (bluez-adapter-path ,adapter) ,property) ,value))
 
 ;; org.bluez.Adapter1.Address
-(defun bluez-adapter-address (adapter-path)
-  (bluez-adapter-property adapter-path "Address"))
+(defun bluez-adapter-address (adapter)
+  (bluez-adapter-property adapter "Address"))
 
 ;; org.bluez.Adapter1.Powered
 (defun bluez-adapter-powered-p (adapter)
@@ -154,10 +156,35 @@ of all known devices."
   (apply #'dbus-call-method :system bluez-service device-path
          bluez-interface-device method args))
 
+(defun bluez-device-call-method-asynchronously (device-path method handler &rest args)
+  (apply #'dbus-call-method-asynchronously :system bluez-service device-path
+         bluez-interface-device method handler args))
+
 (defun bluez-device-paths ()
   (mapcar #'car (remove-if-not (apply-partially #'assoc bluez-interface-device)
                                (bluez-objects)
                                :key #'cadr)))
+
+(defun bluez-read-unpaired-device-path (prompt)
+  (let* ((unpaired-devices (remove-if (lambda (interfaces)
+                                        (let ((device-interface
+                                               (cdr (assoc bluez-interface-device
+                                                           interfaces))))
+                                          (or (not device-interface)
+                                              (cdr (assoc "Paired" device-interface)))))
+                                      (bluez-objects) :key #'cadr))
+         (table (mapcar (lambda (dev)
+                          (cons (let ((device-properties (cadr (assoc bluez-interface-device (cadr dev)))))
+                                  (format "%s (%s)"
+                                          (or (cdr (assoc "Name" device-properties))
+                                              (cdr (assoc "Alias" device-properties)))
+                                          (cdr (assoc "Address" device-properties))))
+                                dev))
+			unpaired-devices)))
+    (when table
+      (let ((selection (completing-read prompt table nil t)))
+        (when (and selection (not (string-equal selection "")))
+          (cadr (assoc selection table)))))))
 
 (defun bluez-device-connect (device-path)
   (bluez-device-call-method device-path "Connect"))
@@ -172,7 +199,7 @@ of all known devices."
   (bluez-device-call-method device-path "DisconnectProfile" uuid))
 
 (defun bluez-device-pair (device-path)
-  (bluez-device-call-method device-path "Pair"))
+  (bluez-device-call-method-asynchronously device-path "Pair" nil))
 
 (defun bluez-device-cancel-pairing (device-path)
   (bluez-device-call-method device-path "CancelPairing"))
@@ -222,24 +249,9 @@ of all known devices."
 
 (defun bluez-network-paths ()
   (mapcar #'car (remove-if-not (apply-partially #'assoc bluez-interface-network)
-			       (bluez-objects)
-			       :key #'cadr)))
+                               (bluez-objects)
+                               :key #'cadr)))
 
-
-;;; Agent
-
-(defconst bluez-interface-agent "org.bluez.Agent1")
-
-(defconst bluez-path-agent (concat dbus-path-emacs "/bluez/agent")
-  "Path of the agent object used to receive agent requests from bluetoothd.")
-
-(defun bluez-agent-request-pin-code-handler (device-path)
-  (read-string (format "PIN code for %s: " (bluez-device-name device-path))))
-
-(defvar bluez-agent-request-pin-code-method
-  (dbus-register-method
-   :system nil bluez-path-agent bluez-interface-agent "RequestPinCode"
-   #'bluez-agent-request-pin-code-handler t))
 
 ;;; AgentManager
 
@@ -267,25 +279,40 @@ of all known devices."
    "RequestDefaultAgent"
    :object-path (or object-path bluez-path-agent)))
 
+;;; Agent
+
+(defconst bluez-interface-agent "org.bluez.Agent1")
+
+(defconst bluez-path-agent (concat dbus-path-emacs "/bluez/agent")
+  "Path of the agent object used to receive agent requests from bluetoothd.")
+
+(defun bluez-agent-request-pin-code-handler (device-path)
+  (read-string (format "PIN code for %s: " (bluez-device-name device-path))))
+
+(defcustom bluez-agent-capabilities ""
+  "Capabilities of the Emacs Bluetooth Agent."
+  :type 'string)
+
+(defvar bluez-agent-methods
+  (prog1 (list (dbus-register-method
+                :system (dbus-get-unique-name :system) bluez-path-agent
+                bluez-interface-agent "RequestPinCode"
+                #'bluez-agent-request-pin-code-handler))
+    (bluez-agent-manager-register-agent bluez-path-agent bluez-agent-capabilities)))
+
 (define-derived-mode bluez-device-list-mode tabulated-list-mode "BlueZ"
   "Major mode for displaying Bluetooth remote devices."
   (setq tabulated-list-format [("Name" 24 t) ("Alias" 24 t) ("Address" 20 t)])
   (setq tabulated-list-entries
-	(mapcar
-	 (lambda (device-path)
-	   (list device-path
-		 (vector (or (bluez-device-name device-path) "None")
-			 (or (bluez-device-alias device-path) "None")
-			 (bluez-device-address device-path))))
-	 (bluez-device-paths)))
+        (mapcar
+         (lambda (device-path)
+           (list device-path
+                 (vector (or (bluez-device-name device-path) "None")
+                         (or (bluez-device-alias device-path) "None")
+                         (bluez-device-address device-path))))
+         (bluez-device-paths)))
   (tabulated-list-init-header)
   (tabulated-list-print))
-
-(defun list-bluetooth-devices ()
-  (interactive)
-  (with-current-buffer (get-buffer-create "*Bluetooth Devices*")
-    (bluez-device-list-mode)
-    (pop-to-buffer (current-buffer))))
 
 (defun bluez-interfaces-added-handler (path interfaces-and-properties)
   ;; Make the structure more Lispy.
@@ -299,30 +326,38 @@ of all known devices."
   (when (buffer-live-p (get-buffer "*Bluetooth Devices*"))
     (with-current-buffer (get-buffer "*Bluetooth Devices*")
       (let ((device-properties (cdr (assoc bluez-interface-device interfaces-and-properties))))
-	(when device-properties
-	  (let ((address (cdr (assoc "Address" device-properties)))
-		(name (cdr (assoc "Name" device-properties)))
-		(alias (cdr (assoc "Alias" device-properties))))
-	    (when address
-	      (let ((entry (assoc path tabulated-list-entries))
-		    (data (vector (or name "None") (or alias "None") address)))
-		(if entry
-		    (setf (cadr entry) data)
-		(push (list path data) tabulated-list-entries)))
-	      (tabulated-list-revert)))))))
+        (when device-properties
+          (let ((address (cdr (assoc "Address" device-properties)))
+                (name (cdr (assoc "Name" device-properties)))
+                (alias (cdr (assoc "Alias" device-properties))))
+            (when address
+              (let ((entry (assoc path tabulated-list-entries))
+                    (data (vector (or name "None") (or alias "None") address)))
+                (if entry
+                    (setf (cadr entry) data)
+                (push (list path data) tabulated-list-entries)))
+              (tabulated-list-revert)))))))
   (message "%s %S" path interfaces-and-properties))
 
 (defvar bluez-interfaces-added-signal nil)
+
+;;; User Interface
+
+(defun bluetooth-list-devices ()
+  (interactive)
+  (with-current-buffer (get-buffer-create "*Bluetooth Devices*")
+    (bluez-device-list-mode)
+    (pop-to-buffer (current-buffer))))
 
 (defun bluetooth-start-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (bluez-adapter-start-discovery adapter-path))
   (setq bluez-interfaces-added-signal
-	(dbus-register-signal
-	 :system bluez-service nil
-	 dbus-interface-objectmanager "InterfacesAdded"
-	 #'bluez-interfaces-added-handler)))
+        (dbus-register-signal
+         :system bluez-service nil
+         dbus-interface-objectmanager "InterfacesAdded"
+         #'bluez-interfaces-added-handler)))
 
 (defun bluetooth-stop-discovery ()
   (interactive)
@@ -332,6 +367,40 @@ of all known devices."
   (when bluez-interfaces-added-signal
     (dbus-unregister-object bluez-interfaces-added-signal)
     (setq bluez-interfaces-added-signal nil)))
+
+(defun bluetooth-make-discoverable (&optional timeout)
+  "Make all Bluetooth adapters discoverable.
+An automatic timeout (in seconds) can be set by providing a numeric prefix argument."
+  (interactive "P")
+  (dolist (adapter (bluez-adapter-paths))
+    (unless (bluez-adapter-discoverable-p adapter)
+      (when (numberp timeout)
+        (setf (bluez-adapter-discoverable-timeout adapter) timeout))
+      (setf (bluez-adapter-discoverable-p adapter) t)
+      (when (bluez-adapter-discoverable-p adapter)
+        (message "Bluetooth adapter %s is now discoverable."
+                 (bluez-adapter-name adapter))))))
+
+(defun bluetooth-make-pairable (&optional timeout)
+  "Make all Bluetooth adapters pairable.
+An automatic timeout (in seconds) can be set by providing a numeric prefix argument."
+  (interactive "P")
+  (dolist (adapter (bluez-adapter-paths))
+    (unless (bluez-adapter-pairable-p adapter)
+      (when (numberp timeout)
+        (setf (bluez-adapter-pairable-timeout adapter) timeout))
+      (setf (bluez-adapter-pairable-p adapter) t)
+      (when (bluez-adapter-pairable-p adapter)
+        (message "Bluetooth adapter %s is now pairable."
+                 (bluez-adapter-name adapter))))))
+
+(defun bluetooth-initiate-pairing (device)
+  (interactive (list (bluez-read-unpaired-device-path "Initiate pairing to: ")))
+  (if (not device)
+      (when (called-interactively-p 'interactive)
+        (message "No unpaired devices found."))
+    (bluez-agent-manager-request-default-agent)
+    (bluez-device-pair device)))
 
 (provide 'bluez)
 ;;; bluez.el ends here
