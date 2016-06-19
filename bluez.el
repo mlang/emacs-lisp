@@ -44,64 +44,83 @@
 
 ;;; org.bluez.Adapter1
 
+(defun bluez-adapter-path (adapter)
+  (if (string-prefix-p "/org/bluez" adapter)
+      adapter
+    (concat "/org/bluez/" adapter)))
+
 (defun bluez-adapter-paths ()
   (mapcar #'car
 	  (remove-if-not (apply-partially #'assoc bluez-interface-adapter)
 			 (bluez-objects)
 			 :key #'cadr)))
 
-(defun bluez-adapter-call-method (adapter-path method &rest args)
-  (apply #'dbus-call-method :system bluez-service adapter-path
+(defun bluez-adapter-call-method (adapter method &rest args)
+  (apply #'dbus-call-method :system bluez-service (bluez-adapter-path adapter)
          bluez-interface-adapter method args))
 
-(defun bluez-adapter-property (adapter-path property)
-  (bluez-property bluez-interface-adapter adapter-path property))
+(defun bluez-adapter-property (adapter property)
+  (bluez-property bluez-interface-adapter (bluez-adapter-path adapter) property))
 
-(gv-define-setter bluez-adapter-property (value adapter-path property)
-  `(setf (bluez-property bluez-interface-adapter ,adapter-path ,property) ,value))
+(gv-define-setter bluez-adapter-property (value adapter property)
+  `(setf (bluez-property bluez-interface-adapter (bluez-adapter-path ,adapter) ,property) ,value))
 
 ;; org.bluez.Adapter1.Address
 (defun bluez-adapter-address (adapter-path)
   (bluez-adapter-property adapter-path "Address"))
 
 ;; org.bluez.Adapter1.Powered
-(defun bluez-adapter-powered-p (adapter-path)
-  "Indicates if the adapter at ADAPTER-PATH is powered on.
+(defun bluez-adapter-powered-p (adapter)
+  "Indicates if the adapter at ADAPTER is powered on.
 Use `setf' to set the value of this property."
-  (bluez-adapter-property adapter-path "Powered"))
+  (bluez-adapter-property adapter "Powered"))
 
-(gv-define-setter bluez-adapter-powered-p (value adapter-path)
-  `(setf (bluez-adapter-property ,adapter-path "Powered") ,value))
+(gv-define-setter bluez-adapter-powered-p (value adapter)
+  `(setf (bluez-adapter-property ,adapter "Powered") ,value))
 
 ;; org.bluez.Adapter1.Alias
-(defun bluez-adapter-alias (adapter-path)
-  "The Bluetooth friendly name of the adapter at ADAPTER-PATH.
+(defun bluez-adapter-alias (adapter)
+  "The Bluetooth friendly name of the adapter at ADAPTER.
 Use `setf' to set the value of this property."
-  (bluez-adapter-property adapter-path "Alias"))
+  (bluez-adapter-property adapter "Alias"))
 
-(gv-define-setter bluez-adapter-alias (value adapter-path)
-  `(setf (bluez-adapter-property ,adapter-path "Alias") ,value))
+(gv-define-setter bluez-adapter-alias (value adapter)
+  `(setf (bluez-adapter-property ,adapter "Alias") ,value))
 
 ;; org.bluez.Adapter1.Name
-(defun bluez-adapter-name (adapter-path)
-  "The Bluetooth system name (pretty hostname) of the adapter at ADAPTER-PATH."
-  (bluez-adapter-property adapter-path "Name"))
+(defun bluez-adapter-name (adapter)
+  "The Bluetooth system name (pretty hostname) of the adapter at ADAPTER."
+  (bluez-adapter-property adapter "Name"))
 
 ;; org.bluez.Adapter1.Discoverable
-(defun bluez-adapter-discoverable-p (adapter-path)
-  (bluez-adapter-property adapter-path "Discoverable"))
+(defun bluez-adapter-discoverable-p (adapter)
+  (bluez-adapter-property adapter "Discoverable"))
 
-(gv-define-setter bluez-adapter-discoverable-p (value adapter-path)
-  `(setf (bluez-adapter-property ,adapter-path "Discoverable") ,value))
+(gv-define-setter bluez-adapter-discoverable-p (value adapter)
+  `(setf (bluez-adapter-property ,adapter "Discoverable") ,value))
+
+;; org.bluez.Adapter1.DiscoverableTimeout
+(defun bluez-adapter-discoverable-timeout (adapter)
+  (bluez-adapter-property adapter "DiscoverableTimeout"))
+
+(gv-define-setter bluez-adapter-discoverable-timeout (value adapter)
+  `(setf (bluez-adapter-property ,adapter "DiscoverableTimeout") ,value))
 
 ;; org.bluez.Adapter1.Pairable
-(defun bluez-adapter-pairable-p (adapter-path)
-  (bluez-adapter-property adapter-path "Pairable"))
+(defun bluez-adapter-pairable-p (adapter)
+  (bluez-adapter-property adapter "Pairable"))
 
-(gv-define-setter bluez-adapter-pairable-p (value adapter-path)
-  `(setf (bluez-adapter-property ,adapter-path "Pairable") ,value))
+(gv-define-setter bluez-adapter-pairable-p (value adapter)
+  `(setf (bluez-adapter-property ,adapter "Pairable") ,value))
 
-(defun bluez-adapter-remove-device (adapter-path device-path)
+;; org.bluez.Adapter1.PairableTimeout
+(defun bluez-adapter-pairable-timeout (adapter)
+  (bluez-adapter-property adapter "PairableTimeout"))
+
+(gv-define-setter bluez-adapter-pairable-timeout (value adapter)
+  `(setf (bluez-adapter-property ,adapter "PairableTimeout") ,value))
+
+(defun bluez-adapter-remove-device (adapter device-path)
   "Removes the remote device object at the given DEVICE-PATH.
 It will remove also the pairing information.
 
@@ -117,18 +136,17 @@ of all known devices."
                            (list (bluez-device-name path)
                                  (bluez-device-adapter path) path))
                          device-paths)))))
-  (bluez-adapter-call-method adapter-path
-                             "RemoveDevice" :object-path device-path))
+  (bluez-adapter-call-method adapter "RemoveDevice" :object-path device-path))
 
 ;; org.bluez.Adapter1.Discovering
-(defun bluez-adapter-discovering-p (adapter-path)
-  (bluez-adapter-property adapter-path "Discovering"))
+(defun bluez-adapter-discovering-p (adapter)
+  (bluez-adapter-property adapter "Discovering"))
 
-(defun bluez-adapter-start-discovery (adapter-path)
-  (bluez-adapter-call-method adapter-path "StartDiscovery"))
+(defun bluez-adapter-start-discovery (adapter)
+  (bluez-adapter-call-method adapter "StartDiscovery"))
 
-(defun bluez-adapter-stop-discovery (adapter-path)
-  (bluez-adapter-call-method adapter-path "StopDiscovery"))
+(defun bluez-adapter-stop-discovery (adapter)
+  (bluez-adapter-call-method adapter "StopDiscovery"))
 
 ;;; org.bluez.Device1
 
@@ -159,39 +177,44 @@ of all known devices."
 (defun bluez-device-cancel-pairing (device-path)
   (bluez-device-call-method device-path "CancelPairing"))
 
+;; org.bluez.Device1.Address
 (defun bluez-device-address (device-path)
   (bluez-property bluez-interface-device device-path "Address"))
 
+;; org.bluez.Device1.Name
 (defun bluez-device-name (device-path)
   (bluez-property bluez-interface-device device-path "Name"))
 
+;; org.bluez.Device1.Alias
 (defun bluez-device-alias (device-path)
   (bluez-property bluez-interface-device device-path "Alias"))
 
 (gv-define-setter bluez-device-alias (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Alias")
-	 ,value))
+  `(setf (bluez-property bluez-interface-device ,device-path "Alias") ,value))
 
+;; org.bluez.Device1.Paired
 (defun bluez-device-paired-p (device-path)
   (bluez-property bluez-interface-device device-path "Paired"))
 
+;; org.bluez.Device1.Trusted
 (defun bluez-device-trusted-p (device-path)
   (bluez-property bluez-interface-device device-path "Trusted"))
 
 (gv-define-setter bluez-device-trusted-p (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Trusted")
-	 ,value))
+  `(setf (bluez-property bluez-interface-device ,device-path "Trusted") ,value))
 
+;; org.bluez.Device1.Blocked
 (defun bluez-device-blocked-p (device-path)
   (bluez-property bluez-interface-device device-path "Blocked"))
 
 (gv-define-setter bluez-device-blocked-p (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Blocked")
-	 ,value))
+  `(setf (bluez-property bluez-interface-device ,device-path "Blocked") ,value))
 
+;; org.bluez.Device1.Connected
 (defun bluez-device-connected-p (device-path)
   (bluez-property bluez-interface-device device-path "Connected"))
 
+;; org.bluez.Device1.Adapter
 (defun bluez-device-adapter (device-path)
   (bluez-property bluez-interface-device device-path "Adapter"))
 
@@ -205,16 +228,18 @@ of all known devices."
 
 ;;; Agent
 
+(defconst bluez-interface-agent "org.bluez.Agent1")
+
 (defconst bluez-path-agent (concat dbus-path-emacs "/bluez/agent")
   "Path of the agent object used to receive agent requests from bluetoothd.")
 
 (defun bluez-agent-request-pin-code-handler (device-path)
   (read-string (format "PIN code for %s: " (bluez-device-name device-path))))
 
-(setq m (dbus-register-method
-	 :system nil bluez-path-agent
-	 "org.bluez.Agent1" "RequestPinCode"
-	 #'bluez-agent-request-pin-code-handler t))
+(defvar bluez-agent-request-pin-code-method
+  (dbus-register-method
+   :system nil bluez-path-agent bluez-interface-agent "RequestPinCode"
+   #'bluez-agent-request-pin-code-handler t))
 
 ;;; AgentManager
 
@@ -224,16 +249,23 @@ of all known devices."
   (apply #'dbus-call-method :system bluez-service "/org/bluez"
          bluez-interface-agent-manager method args))
 
-(defun bluez-agent-manager-register-agent (object-path &optional capabilities)
+(defun bluez-agent-manager-register-agent (&optional object-path capabilities)
+  (interactive)
   (bluez-agent-manager-call-method
-   "RegisterAgent" :object-path object-path (or capabilities "")))
+   "RegisterAgent"
+   :object-path (or object-path bluez-path-agent)
+   (or capabilities "")))
 
-(defun bluez-agent-manager-unregister-agent (object-path)
+(defun bluez-agent-manager-unregister-agent (&optional object-path)
+  (interactive)
   (bluez-agent-manager-call-method
-   "UnregisterAgent" :object-path object-path))
+   "UnregisterAgent" :object-path (or object-path bluez-path-agent)))
 
-(defun bluez-agent-manager-request-default-agent (object-path)
-  (bluez-agent-manager-call-method "RequestDefaultAgent" :object-path object-path))
+(defun bluez-agent-manager-request-default-agent (&optional object-path)
+  (interactive)
+  (bluez-agent-manager-call-method
+   "RequestDefaultAgent"
+   :object-path (or object-path bluez-path-agent)))
 
 (define-derived-mode bluez-device-list-mode tabulated-list-mode "BlueZ"
   "Major mode for displaying Bluetooth remote devices."
@@ -242,8 +274,8 @@ of all known devices."
 	(mapcar
 	 (lambda (device-path)
 	   (list device-path
-		 (vector (bluez-device-name device-path)
-			 (bluez-device-alias device-path)
+		 (vector (or (bluez-device-name device-path) "None")
+			 (or (bluez-device-alias device-path) "None")
 			 (bluez-device-address device-path))))
 	 (bluez-device-paths)))
   (tabulated-list-init-header)
@@ -271,9 +303,9 @@ of all known devices."
 	  (let ((address (cdr (assoc "Address" device-properties)))
 		(name (cdr (assoc "Name" device-properties)))
 		(alias (cdr (assoc "Alias" device-properties))))
-	    (when (and address name alias)
+	    (when address
 	      (let ((entry (assoc path tabulated-list-entries))
-		    (data (vector name alias address)))
+		    (data (vector (or name "None") (or alias "None") address)))
 		(if entry
 		    (setf (cadr entry) data)
 		(push (list path data) tabulated-list-entries)))
@@ -282,7 +314,7 @@ of all known devices."
 
 (defvar bluez-interfaces-added-signal nil)
 
-(defun bluez-start-discovery ()
+(defun bluetooth-start-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (bluez-adapter-start-discovery adapter-path))
@@ -292,7 +324,7 @@ of all known devices."
 	 dbus-interface-objectmanager "InterfacesAdded"
 	 #'bluez-interfaces-added-handler)))
 
-(defun bluez-stop-discovery ()
+(defun bluetooth-stop-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (when (bluez-adapter-discovering-p adapter-path)
