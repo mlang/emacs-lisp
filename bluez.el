@@ -171,7 +171,7 @@ of all known devices."
                                                (cdr (assoc bluez-interface-device
                                                            interfaces))))
                                           (or (not device-interface)
-                                              (cdr (assoc "Paired" device-interface)))))
+                                              (cdr (assoc "Paired" (car device-interface))))))
                                       (bluez-objects) :key #'cadr))
          (table (mapcar (lambda (dev)
                           (cons (let ((device-properties (cadr (assoc bluez-interface-device (cadr dev)))))
