@@ -300,6 +300,21 @@ of all known devices."
 (defun bluez-agent-request-pin-code-handler (device-path)
   (read-string (format "PIN code for %s: " (bluez-device-name device-path))))
 
+(defun bluez-agent-display-pin-code-handler (device-path pin-code)
+  (message "Enter %s on %s." pin-code (bluez-device-name device-path)))
+
+(defun bluez-agent-request-confirmation-handler (device-path passkey)
+  (if (yes-or-no-p (format "Device %s is displaying %d? "
+			   (bluez-device-name device-path) passkey))
+      :ignore
+    (signal 'dbus-error "org.bluez.Error.Rejected")))
+
+(defun bluez-agent-authorize-service-handler (device-path uuid)
+  (if (yes-or-no-p (format "Device %s requesting a %s connection, authorize? "
+			   (bluez-device-name device-path) uuid))
+      :ignore
+    (signal 'dbus-error 'dbus-error "org.bluez.Error.Rejected")))
+
 (defcustom bluez-agent-capabilities ""
   "Capabilities of the Emacs Bluetooth Agent."
   :type 'string)
@@ -311,7 +326,13 @@ of all known devices."
 
 (defvar bluez-agent-methods
   (prog1 (list (bluez-register-agent-method
-		"RequestPinCode" #'bluez-agent-request-pin-code-handler))
+		"RequestPinCode" #'bluez-agent-request-pin-code-handler)
+	       (bluez-register-agent-method
+		"DisplayPinCode" #'bluez-agent-display-pin-code-handler)
+	       (bluez-register-agent-method
+		"RequestConfirmation" #'bluez-agent-request-confirmation-handler)
+	       (bluez-register-agent-method
+		"AuthorizeService" #'bluez-agent-authorize-service-handler))
     (bluez-agent-manager-register-agent bluez-path-emacs-agent bluez-agent-capabilities)))
 
 (define-derived-mode bluez-device-list-mode tabulated-list-mode "BlueZ"
@@ -363,14 +384,64 @@ of all known devices."
     (bluez-device-list-mode)
     (pop-to-buffer (current-buffer))))
 
+(defun bluez-report-adapter-property-changes (path interface property value)
+  (when (and (string-equal interface bluez-interface-adapter))
+    (cond ((string-equal property "Discoverable")
+	   (if value
+	       (message "Adapter %s (%s) is now discoverable by other devices..."
+			(bluez-adapter-name path)
+			(bluez-adapter-address path))
+	     (message "Adapter %s (%s) is no longer discoverable."
+		      (bluez-adapter-name path)
+		      (bluez-adapter-address path))))
+	  ((string-equal property "Discovering")
+	   (if value
+	       (message "Adapter %s (%s) is discovering new devices..."
+			(bluez-adapter-name path)
+			(bluez-adapter-address path))
+	     (message "Adapter %s (%s) has stopped discovering new devices."
+		      (bluez-adapter-name path)
+		      (bluez-adapter-address path))))
+	  ((string-equal property "Pairable")
+	   (if value
+	       (message "Adapter %s (%s) is now pairable..."
+			(bluez-adapter-name path)
+			(bluez-adapter-address path))
+	     (message "Adapter %s (%s) is no longer pairable."
+		      (bluez-adapter-name path)
+		      (bluez-adapter-address path)))))))
+
+(defvar bluez-property-changed-hook '(bluez-report-adapter-property-changes)
+  "A list of functions to call when a BlueZ D-Bus property changes.
+Arguments to functions: (PATH INTERFACE PROPERTY VALUE).")
+
+(defvar bluez-property-invalidated-hook nil)
+
+(defun bluez-properties-changed-handler (interface
+					 changed-properties invalidated)
+  (dolist (property changed-properties)
+    (when (cdr property)
+      (setf (cdr property) (caadr property))))
+  (let ((path (dbus-event-path-name last-input-event)))
+    (dolist (property changed-properties)
+      (message "PropertyChanged: %s %s.%s=%S" path interface (car property) (cdr property))
+      (run-hook-with-args 'bluez-property-changed-hook
+			  path interface (car property) (cdr property)))
+    (dolist (property invalidated)
+      (message "PropertyInvalidated: %s %s.%s" path interface property)
+      (run-hook-with-args 'bluez-property-invalidated-hook path interface property))))
+
+(defvar bluez-properties-changed-signal
+  (dbus-register-signal
+   :system bluez-service nil
+   dbus-interface-properties "PropertiesChanged"
+   #'bluez-properties-changed-handler))
+
 (defun bluetooth-start-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (unless (bluez-adapter-discovering-p adapter-path)
-      (bluez-adapter-start-discovery adapter-path)
-      (message "Started discovery on %s (%s)..."
-	       (bluez-adapter-name adapter-path)
-	       (bluez-adapter-address adapter-path))))
+      (bluez-adapter-start-discovery adapter-path)))
   (setq bluez-interfaces-added-signal
         (dbus-register-signal
          :system bluez-service nil
@@ -381,10 +452,7 @@ of all known devices."
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (when (bluez-adapter-discovering-p adapter-path)
-      (bluez-adapter-stop-discovery adapter-path)
-      (message "Stopping discovery on %s (%s)..."
-	       (bluez-adapter-name adapter-path)
-	       (bluez-adapter-address adapter-path))))
+      (bluez-adapter-stop-discovery adapter-path)))
   (when bluez-interfaces-added-signal
     (dbus-unregister-object bluez-interfaces-added-signal)
     (setq bluez-interfaces-added-signal nil)))
@@ -397,10 +465,7 @@ An automatic timeout (in seconds) can be set by providing a numeric prefix argum
     (unless (bluez-adapter-discoverable-p adapter)
       (when (numberp timeout)
         (setf (bluez-adapter-discoverable-timeout adapter) timeout))
-      (setf (bluez-adapter-discoverable-p adapter) t)
-      (when (bluez-adapter-discoverable-p adapter)
-        (message "Bluetooth adapter %s is now discoverable."
-                 (bluez-adapter-name adapter))))))
+      (setf (bluez-adapter-discoverable-p adapter) t))))
 
 (defun bluetooth-make-pairable (&optional timeout)
   "Make all Bluetooth adapters pairable.
@@ -410,10 +475,7 @@ An automatic timeout (in seconds) can be set by providing a numeric prefix argum
     (unless (bluez-adapter-pairable-p adapter)
       (when (numberp timeout)
         (setf (bluez-adapter-pairable-timeout adapter) timeout))
-      (setf (bluez-adapter-pairable-p adapter) t)
-      (when (bluez-adapter-pairable-p adapter)
-        (message "Bluetooth adapter %s is now pairable."
-                 (bluez-adapter-name adapter))))))
+      (setf (bluez-adapter-pairable-p adapter) t))))
 
 (defun bluetooth-initiate-pairing (device)
   (interactive (list (bluez-read-unpaired-device-path "Initiate pairing to: ")))
