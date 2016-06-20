@@ -349,6 +349,11 @@ of all known devices."
   (tabulated-list-init-header)
   (tabulated-list-print))
 
+;;; Incoming signals
+
+(defun bluez-register-signal (interface method handler)
+  (dbus-register-signal :system bluez-service nil interface method handler))
+
 (defun bluez-interfaces-added-handler (path interfaces-and-properties)
   ;; Make the structure more Lispy.
   (dolist (iface-entry interfaces-and-properties)
@@ -360,7 +365,8 @@ of all known devices."
 
   (when (buffer-live-p (get-buffer "*Bluetooth Devices*"))
     (with-current-buffer (get-buffer "*Bluetooth Devices*")
-      (let ((device-properties (cdr (assoc bluez-interface-device interfaces-and-properties))))
+      (let ((device-properties (cdr (assoc bluez-interface-device
+					   interfaces-and-properties))))
         (when device-properties
           (let ((address (cdr (assoc "Address" device-properties)))
                 (name (cdr (assoc "Name" device-properties)))
@@ -374,21 +380,15 @@ of all known devices."
               (tabulated-list-revert)))))))
   (message "%s %S" path interfaces-and-properties))
 
-(defvar bluez-interfaces-added-signal nil)
-
-;;; User Interface
-
-(defun bluetooth-list-devices ()
-  (interactive)
-  (with-current-buffer (get-buffer-create "*Bluetooth Devices*")
-    (bluez-device-list-mode)
-    (pop-to-buffer (current-buffer))))
+(defvar bluez-interfaces-added-signal
+  (bluez-register-signal dbus-interface-objectmanager
+			 "InterfacesAdded" #'bluez-interfaces-added-handler))
 
 (defun bluez-report-adapter-property-changes (path interface property value)
   (when (and (string-equal interface bluez-interface-adapter))
     (cond ((string-equal property "Discoverable")
 	   (if value
-	       (message "Adapter %s (%s) is now discoverable by other devices..."
+	       (message "Adapter %s (%s) is now discoverable..."
 			(bluez-adapter-name path)
 			(bluez-adapter-address path))
 	     (message "Adapter %s (%s) is no longer discoverable."
@@ -412,10 +412,12 @@ of all known devices."
 		      (bluez-adapter-address path)))))))
 
 (defvar bluez-property-changed-hook '(bluez-report-adapter-property-changes)
-  "A list of functions to call when a BlueZ D-Bus property changes.
+  "A list of functions to call when a BlueZ D-Bus property has changed.
 Arguments to functions: (PATH INTERFACE PROPERTY VALUE).")
 
-(defvar bluez-property-invalidated-hook nil)
+(defvar bluez-property-invalidated-hook nil
+  "A list of functions to call when a BlueZ D-Bus property was invalidated.
+Arguments to functions: (PATH INTERFACE PROPERTY).")
 
 (defun bluez-properties-changed-handler (interface
 					 changed-properties invalidated)
@@ -424,38 +426,39 @@ Arguments to functions: (PATH INTERFACE PROPERTY VALUE).")
       (setf (cdr property) (caadr property))))
   (let ((path (dbus-event-path-name last-input-event)))
     (dolist (property changed-properties)
-      (message "PropertyChanged: %s %s.%s=%S" path interface (car property) (cdr property))
+      (message "PropertyChanged: %s %s.%s=%S"
+	       path interface (car property) (cdr property))
       (run-hook-with-args 'bluez-property-changed-hook
 			  path interface (car property) (cdr property)))
     (dolist (property invalidated)
       (message "PropertyInvalidated: %s %s.%s" path interface property)
-      (run-hook-with-args 'bluez-property-invalidated-hook path interface property))))
+      (run-hook-with-args 'bluez-property-invalidated-hook
+			  path interface property))))
 
 (defvar bluez-properties-changed-signal
-  (dbus-register-signal
-   :system bluez-service nil
-   dbus-interface-properties "PropertiesChanged"
-   #'bluez-properties-changed-handler))
+  (bluez-register-signal dbus-interface-properties
+			 "PropertiesChanged"
+			 #'bluez-properties-changed-handler))
+
+;;; User Interface
+
+(defun bluetooth-list-devices ()
+  (interactive)
+  (with-current-buffer (get-buffer-create "*Bluetooth Devices*")
+    (bluez-device-list-mode)
+    (pop-to-buffer (current-buffer))))
 
 (defun bluetooth-start-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (unless (bluez-adapter-discovering-p adapter-path)
-      (bluez-adapter-start-discovery adapter-path)))
-  (setq bluez-interfaces-added-signal
-        (dbus-register-signal
-         :system bluez-service nil
-         dbus-interface-objectmanager "InterfacesAdded"
-         #'bluez-interfaces-added-handler)))
+      (bluez-adapter-start-discovery adapter-path))))
 
 (defun bluetooth-stop-discovery ()
   (interactive)
   (dolist (adapter-path (bluez-adapter-paths))
     (when (bluez-adapter-discovering-p adapter-path)
-      (bluez-adapter-stop-discovery adapter-path)))
-  (when bluez-interfaces-added-signal
-    (dbus-unregister-object bluez-interfaces-added-signal)
-    (setq bluez-interfaces-added-signal nil)))
+      (bluez-adapter-stop-discovery adapter-path))))
 
 (defun bluetooth-make-discoverable (&optional timeout)
   "Make all Bluetooth adapters discoverable.
