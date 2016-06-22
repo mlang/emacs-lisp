@@ -199,6 +199,33 @@ of all known devices."
         (when (and selection (not (string-equal selection "")))
           (cadr (assoc selection table)))))))
 
+(defun bluez-read-untrusted-device-path (prompt)
+  (let* ((untrusted-devices (remove-if (lambda (interfaces)
+					 (let ((device-interface
+						(cdr (assoc bluez-interface-device
+							    interfaces))))
+					   (or (not device-interface)
+					       (not (cdr (assoc "Paired" (car device-interface))))
+					       (cdr (assoc "Trusted" (car device-interface))))))
+                                      (bluez-objects) :key #'cadr))
+         (table (mapcar (lambda (dev)
+                          (cons (let ((device-properties
+				       (cadr (assoc bluez-interface-device
+						    (cadr dev)))))
+                                  (format "%s (%s)"
+                                          (or (cdr (assoc "Name"
+							  device-properties))
+                                              (cdr (assoc "Alias"
+							  device-properties)))
+                                          (cdr (assoc "Address"
+						      device-properties))))
+                                dev))
+			untrusted-devices)))
+    (when table
+      (let ((selection (completing-read prompt table nil t)))
+        (when (and selection (not (string-equal selection "")))
+          (cadr (assoc selection table)))))))
+
 (defun bluez-device-connect (device-path)
   (bluez-call-device-method device-path "Connect"))
 
@@ -472,8 +499,10 @@ An automatic timeout (in seconds) can be set by providing a numeric prefix argum
 
 (defun bluetooth-make-pairable (&optional timeout)
   "Make all Bluetooth adapters pairable.
-An automatic timeout (in seconds) can be set by providing a numeric prefix argument."
+An automatic timeout (in seconds) can be set by providing a numeric prefix
+argument."
   (interactive "P")
+  (bluez-agent-manager-request-default-agent bluez-path-emacs-agent)
   (dolist (adapter (bluez-adapter-paths))
     (unless (bluez-adapter-pairable-p adapter)
       (when (numberp timeout)
@@ -487,6 +516,13 @@ An automatic timeout (in seconds) can be set by providing a numeric prefix argum
         (message "No unpaired devices found."))
     (bluez-agent-manager-request-default-agent bluez-path-emacs-agent)
     (bluez-device-pair device)))
+
+(defun bluetooth-trust-device (device)
+  (interactive (list (bluez-read-unpaired-device-path "Device to trust: ")))
+  (if (not device)
+      (when (called-interactively-p 'interactive)
+	(message "No paired but untrusted devices found."))
+    (setf (bluez-device-trusted-p device) t)))
 
 (provide 'bluez)
 ;;; bluez.el ends here
