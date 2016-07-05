@@ -1,4 +1,4 @@
-;;; systemd.el ---                                   -*- lexical-binding: t; -*-
+;;; systemd.el --- D-Bus bindings for Systemd       -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Mario Lang
 

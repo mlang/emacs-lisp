@@ -1,4 +1,4 @@
-;;; systemd.el ---                                   -*- lexical-binding: t; -*-
+;;; systemd-introspect.el --- D-Bus Introspection   -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Mario Lang
 
@@ -18,44 +18,41 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-;;; Commentary:
-
-;; 
-
 ;;; Code:
 
 (require 'dbus)
 
 (defun systemd-introspect (service path &optional interfaces)
-  (let ((prefixes '(("org.freedesktop.systemd1.Manager" . "systemd-")
-		    ("org.freedesktop.systemd1.Automount" . "systemd-automount-")
-		    ("org.freedesktop.systemd1.BusName" . "systemd-bus-name-")
-		    ("org.freedesktop.systemd1.Device" . "systemd-device-")
-		    ("org.freedesktop.systemd1.Mount" . "systemd-mount-")
-		    ("org.freedesktop.systemd1.Path" . "systemd-path-")
-		    ("org.freedesktop.systemd1.Service" . "systemd-service-")
-		    ("org.freedesktop.systemd1.Scope" . "systemd-scope-")
-		    ("org.freedesktop.systemd1.Slice" . "systemd-slice-")
-		    ("org.freedesktop.systemd1.Socket" . "systemd-socket-")
-		    ("org.freedesktop.systemd1.Swap" . "systemd-swap-")
-		    ("org.freedesktop.systemd1.Target" . "systemd-target-")
-		    ("org.freedesktop.systemd1.Timer" . "systemd-timer-")
-		    ("org.freedesktop.systemd1.Unit" . "systemd-unit-")
-		    ("org.freedesktop.login1.Manager" . "logind-")
-		    ("org.freedesktop.login1.Seat" . "logind-seat-")
-		    ("org.freedesktop.login1.Session" . "logind-session-")
-		    ("org.freedesktop.login1.User" . "logind-user-")
-		    ("org.freedesktop.network1.Manager" . "networkd-")
-		    ("org.freedesktop.network1.Link" . "networkd-link-")
-		    ("org.freedesktop.network1.Network" . "networkd-network-")
-		    ("org.freedesktop.resolve1.Manager" . "resolved-")
-		    ("org.freedesktop.resolve1.Link" . "resolved-link-")
-		    ("org.freedesktop.hostname1" . "hostnamed-")
-		    ("org.freedesktop.locale1" . "localed-")
-		    ("org.freedesktop.timedate1" . "timedated-")
-		    ("org.freedesktop.machine1.Manager" . "machined-")
-		    ("org.freedesktop.machine1.Image" . "machined-image-")
-		    ("org.freedesktop.machine1.Machine" . "machined-machine-")))
+  (let ((prefixes
+	 '(("org.freedesktop.systemd1.Manager" . "systemd-")
+	   ("org.freedesktop.systemd1.Automount" . "systemd-automount-")
+	   ("org.freedesktop.systemd1.BusName" . "systemd-bus-name-")
+	   ("org.freedesktop.systemd1.Device" . "systemd-device-")
+	   ("org.freedesktop.systemd1.Mount" . "systemd-mount-")
+	   ("org.freedesktop.systemd1.Path" . "systemd-path-")
+	   ("org.freedesktop.systemd1.Service" . "systemd-service-")
+	   ("org.freedesktop.systemd1.Scope" . "systemd-scope-")
+	   ("org.freedesktop.systemd1.Slice" . "systemd-slice-")
+	   ("org.freedesktop.systemd1.Socket" . "systemd-socket-")
+	   ("org.freedesktop.systemd1.Swap" . "systemd-swap-")
+	   ("org.freedesktop.systemd1.Target" . "systemd-target-")
+	   ("org.freedesktop.systemd1.Timer" . "systemd-timer-")
+	   ("org.freedesktop.systemd1.Unit" . "systemd-unit-")
+	   ("org.freedesktop.login1.Manager" . "logind-")
+	   ("org.freedesktop.login1.Seat" . "logind-seat-")
+	   ("org.freedesktop.login1.Session" . "logind-session-")
+	   ("org.freedesktop.login1.User" . "logind-user-")
+	   ("org.freedesktop.network1.Manager" . "networkd-")
+	   ("org.freedesktop.network1.Link" . "networkd-link-")
+	   ("org.freedesktop.network1.Network" . "networkd-network-")
+	   ("org.freedesktop.resolve1.Manager" . "resolved-")
+	   ("org.freedesktop.resolve1.Link" . "resolved-link-")
+	   ("org.freedesktop.hostname1" . "hostnamed-")
+	   ("org.freedesktop.locale1" . "localed-")
+	   ("org.freedesktop.timedate1" . "timedated-")
+	   ("org.freedesktop.machine1.Manager" . "machined-")
+	   ("org.freedesktop.machine1.Image" . "machined-image-")
+	   ("org.freedesktop.machine1.Machine" . "machined-machine-")))
 	(xml (dbus-introspect-xml :system service path)))
     (dolist (item (and (eq (car-safe xml) 'node) (cddr xml)) interfaces)
       (cond
@@ -64,7 +61,6 @@
 	       (prefix (cdr (assoc interface prefixes)))
 	       (object-interface (not (string-match "\\(\\.Manager\\|1\\)$" interface)))
 	       forms)
-	  ;(unless prefix (message interface))
 	  (when (and prefix (not (assoc interface interfaces)))
 	    (setq
 	     interfaces
