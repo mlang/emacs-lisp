@@ -40,7 +40,7 @@
 (define-derived-mode systemctl-list-units-mode tabulated-list-mode "Units"
   "Major mode for displaying a list of Systemd Units."
   (setq tabulated-list-format (vector (list "Unit" 30 t)
-				      (list "Descritpion" 20 nil)
+				      (list "Description" 20 nil)
 				      (list "Active" 8 t)
 				      (list "Loaded" 8 t)
 				      (list "State" 8 t)))
