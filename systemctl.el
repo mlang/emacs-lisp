@@ -28,36 +28,55 @@
 (require 'tabulated-list)
 
 (defcustom systemctl-list-units-format
-  (vector (list "Unit" 30 t)
-	  (list "Description" 20 nil)
-	  (list "Active" 8 t)
-	  (list "Loaded" 8 t)
-	  (list "State" 8 t))
-  "See `tabulated-list-format'."
+  (vector (list "Unit" 22 t)
+          (list "Active" 9 t)
+          (list "Loaded" 8 t)
+          (list "State" 8 t)
+          (list "Description" 50 nil))
+  "Column format specification for `systemctl-list-units'."
   :type '(vector (list :tag "Unit"
-		       (string :tag "Title")
-		       (number :tag "Width")
-		       (boolean :tag "Sortable"))
-		 (list :tag "Description"
-		       (string :tag "Title")
-		       (number :tag "Width")
-		       (boolean :tag "Sortable"))
+                       (string :tag "Title")
+                       (number :tag "Width")
+                       (boolean :tag "Sortable"))
 		 (list :tag "Active"
-		       (string :tag "Title")
-		       (number :tag "Width")
-		       (boolean :tag "Sortable"))
-		 (list :tag "Loaded"
-		       (string :tag "Title")
-		       (number :tag "Width")
-		       (boolean :tag "Sortable"))
-		 (list :tag "State"
-		       (string :tag "Title")
-		       (number :tag "Width")
-		       (boolean :tag "Sortable"))))
+                       (string :tag "Title")
+                       (number :tag "Width")
+                       (boolean :tag "Sortable"))
+                 (list :tag "Loaded"
+                       (string :tag "Title")
+                       (number :tag "Width")
+                       (boolean :tag "Sortable"))
+                 (list :tag "State"
+                       (string :tag "Title")
+                       (number :tag "Width")
+                       (boolean :tag "Sortable"))
+		 (list :tag "Description"
+                       (string :tag "Title")
+                       (number :tag "Width")
+                       (boolean :tag "Sortable"))))
 
-(define-derived-mode systemctl-list-units-mode tabulated-list-mode "Units"
+(defun systemctl-list-units-entries ()
+  (mapcar (lambda (desc)
+            (list (nth 6 desc)
+                  (vector (nth 0 desc)
+                          (nth 2 desc)
+                          (nth 3 desc)
+                          (nth 4 desc)
+                          (nth 1 desc))))
+          (systemd-ListUnits)))
+
+(defvar systemctl-list-units-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-m" #'systemctl-find-file)
+    (define-key map "start" #'systemctl-start)
+    (define-key map "stop"  #'systemctl-stop)
+    map)
+  "Keymap for `systemctl-list-units-mode'.")
+
+(define-derived-mode systemctl-list-units-mode tabulated-list-mode "Systemd-Units"
   "Major mode for displaying a list of Systemd Units."
-  (setq tabulated-list-format systemctl-list-units-format)
+  (setq tabulated-list-entries #'systemctl-list-units-entries
+        tabulated-list-format    systemctl-list-units-format)
   (tabulated-list-init-header))
   
 (defun systemctl-list-units ()
@@ -65,22 +84,29 @@
   (interactive)
   (with-current-buffer (get-buffer-create "*Systemd Units*")
     (systemctl-list-units-mode)
-    (setq tabulated-list-entries
-	  (mapcar (lambda (desc)
-		    (list (nth 6 desc)
-			  (vector (nth 0 desc)
-				  (nth 1 desc)
-				  (nth 2 desc)
-				  (nth 3 desc)
-				  (nth 4 desc))))
-		  (systemd-ListUnits)))
     (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
 (defun systemctl-start (unit)
-  (interactive (list (or (tabulated-list-get-id)
-			 (systemd-GetUnit (read-string "Unit: ")))))
-  (systemd-unit-Start unit))
+  (interactive (list (or (and (tabulated-list-get-entry)
+                              (aref (tabulated-list-get-entry) 0))
+                         (read-string "Unit: "))))
+  (systemd-StartUnit unit "replace")
+  (when (eq major-mode 'systemctl-list-units-mode)
+    (tabulated-list-revert)))
+
+(defun systemctl-stop (unit)
+  (interactive (list (or (and (tabulated-list-get-entry)
+                              (aref (tabulated-list-get-entry) 0))
+                         (read-string "Unit: "))))
+  (systemd-StopUnit unit "replace")
+  (when (eq major-mode 'systemctl-list-units-mode)
+    (tabulated-list-revert)))
+
+(defun systemctl-find-file (unit)
+  (interactive
+   (list (or (tabulated-list-get-id) (systemd-GetUnit (read-string "Unit: ")))))
+  (find-file (systemd-unit-FragmentPath unit)))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here
