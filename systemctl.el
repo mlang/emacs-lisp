@@ -65,6 +65,29 @@
                           (nth 1 desc))))
           (systemd-ListUnits)))
 
+(defun systemctl-unescape-unit-name (string)
+  (while (string-match "\\\\x\\([0-9a-f]\\{2\\}\\)" string)
+    (setq string
+	  (replace-match (string (string-to-int (match-string 1 string) 16))
+			 t t string)))
+  string)
+
+(defun systemctl-list-units-print-entry (id cols)
+  "Insert a Systemd Units List entry at point."
+  (let ((beg   (point))
+	(x     (max tabulated-list-padding 0))
+	(inhibit-read-only t))
+    (if (> tabulated-list-padding 0)
+	(insert (make-string x ?\s)))
+    (dotimes (n (length tabulated-list-format))
+      (let ((desc (aref cols n)))
+	(when (= n 0)
+	  (setq desc (systemctl-unescape-unit-name desc)))
+	(setq x (tabulated-list-print-col n desc x))))
+    (insert ?\n)
+    (put-text-property beg (point) 'tabulated-list-id id)
+    (put-text-property beg (point) 'tabulated-list-entry cols)))
+
 (defvar systemctl-list-units-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-m" #'systemctl-find-file)
@@ -76,7 +99,8 @@
 (define-derived-mode systemctl-list-units-mode tabulated-list-mode "Systemd-Units"
   "Major mode for displaying a list of Systemd Units."
   (setq tabulated-list-entries #'systemctl-list-units-entries
-        tabulated-list-format    systemctl-list-units-format)
+        tabulated-list-format    systemctl-list-units-format
+	tabulated-list-printer #'systemctl-list-units-print-entry)
   (tabulated-list-init-header))
   
 (defun systemctl-list-units ()
