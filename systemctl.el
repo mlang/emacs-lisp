@@ -64,15 +64,17 @@
   "The TRAMP method to use when remotely accessing Systemd Unit files."
   :group 'systemctl
   :type (cons 'choice
-	      (mapcar (lambda (x) (list 'const (car x)))
+	      (mapcar (lambda (method)
+			(list 'const (car method)))
 		      tramp-methods)))
 
 (defvar-local systemctl-bus :system
-  "D-Bus bus to use when accessing Systemd.")
+  "Default D-Bus bus to use when accessing Systemd.")
 
 (defvar systemctl-list-units-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-m" #'systemctl-find-file)
+    (define-key map "\C-m" #'systemctl-edit-unit-files)
+    (define-key map "f" #'systemctl-find-fragment)
     (define-key map "start" #'systemctl-start)
     (define-key map "stop"  #'systemctl-stop)
     map)
@@ -102,11 +104,10 @@
 
 (defun systemctl-list-units-print-entry (id cols)
   "Insert a Systemd Units List entry at point."
-  (let ((beg   (point))
-        (x     (max tabulated-list-padding 0))
+  (let ((beg (point))
+        (x (max tabulated-list-padding 0))
         (inhibit-read-only t))
-    (if (> tabulated-list-padding 0)
-        (insert (make-string x ?\s)))
+    (when (> x 0) (insert (make-string x ?\s)))
     (dotimes (n (length tabulated-list-format))
       (let ((desc (aref cols n)))
         (when (= n 0)
@@ -157,7 +158,7 @@
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
-(defun systemctl-find-file (unit)
+(defun systemctl-find-fragment (unit)
   (interactive
    (list (or (tabulated-list-get-id)
 	     (systemd-GetUnit (systemctl-bus) (read-string "Unit: ")))))
@@ -170,6 +171,60 @@
 	    (find-file (concat "/" systemctl-tramp-method ":" host ":"
 			       fragment-path)))
 	(find-file fragment-path)))))
+
+(defun systemctl-edit-unit-files (unit &optional override-file)
+  "Visit all configuration files related to UNIT simultaneously.
+If optional OVERRIDE-FILE is specified, or if a prefix argument has been
+given interactively, open a (new) override file."
+  (interactive
+   (let* ((unit (if (tabulated-list-get-entry)
+		    (systemctl-unescape-unit-name (aref (tabulated-list-get-entry) 0))
+		  (read-string "Unit: ")))
+	  (unit-path (or (tabulated-list-get-id)
+			 (systemd-GetUnit (systemctl-bus) unit)))
+	  (override-file
+	   (when (equal current-prefix-arg '(4))
+	     (read-file-name "Override file: "
+			     (concat "/etc/systemd/system/" unit ".d/") nil nil
+			     "override.conf"))))
+     (list unit-path override-file)))
+  (let ((files (systemd-unit-DropInPaths (systemctl-bus) unit)))
+    (when override-file
+      (let ((directory (file-name-directory override-file)))
+	(setq files (append (list override-file) files))
+	(unless (file-directory-p directory)
+	  (make-directory directory))))
+    (let ((path (systemd-unit-FragmentPath (systemctl-bus) unit)))
+      (when (not (string= path ""))
+	(setq files (append files (list path)))))
+    (let ((path (systemd-unit-SourcePath (systemctl-bus) unit)))
+      (when (not (string= path ""))
+	(setq files (append files (list path)))))
+    (when files
+      (let ((buffers (mapcar #'find-file-noselect files)))
+	(pop-to-buffer (car buffers))
+	(when (cdr buffers)
+	  (delete-other-windows)
+	  (dolist (buffer (cdr buffers))
+	    (let ((window (split-window (car (last (window-list))))))
+	      (shrink-window-if-larger-than-buffer)
+	      (set-window-buffer window buffer)))
+	  (mapc #'shrink-window-if-larger-than-buffer (window-list)))))))
+
+(defvar systemd-unit-font-lock-keywords
+  '(;; [section]
+    ("^[ \t]*\\[\\(Unit\\|Service\\)\\]"
+     1 'font-lock-type-face)
+    ;; var=val or var[index]=val
+    ("^[ \t]*\\(.+?\\)[ \t]*="
+     1 'font-lock-variable-name-face))
+  "Keywords to highlight in Conf mode.")
+
+(define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
+  (conf-mode-initialize "#" systemd-unit-font-lock-keywords))
+
+(mapc (apply-partially #'add-to-list 'auto-mode-alist)
+      '(("\\.service\\'" . systemd-unit-mode)))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here
