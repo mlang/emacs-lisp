@@ -65,7 +65,7 @@
   :group 'systemctl
   :type (cons 'choice
 	      (mapcar (lambda (x) (list 'const (car x)))
-		      tramp-methods))))
+		      tramp-methods)))
 
 (defvar-local systemctl-bus :system
   "D-Bus bus to use when accessing Systemd.")
