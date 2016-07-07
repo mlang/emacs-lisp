@@ -26,6 +26,10 @@
 
 (require 'systemd)
 (require 'tabulated-list)
+(require 'tramp)
+
+(defgroup systemctl nil
+  "Interface to Systemd.")
 
 (defcustom systemctl-list-units-format
   (vector (list "Unit" 22 t)
@@ -34,6 +38,7 @@
           (list "State" 8 t)
           (list "Description" 50 nil))
   "Column format specification for `systemctl-list-units'."
+  :group 'systemctl
   :type '(vector (list :tag "Unit"
                        (string :tag "Title")
                        (number :tag "Width")
@@ -55,9 +60,29 @@
                        (number :tag "Width")
                        (boolean :tag "Sortable"))))
 
+(defcustom systemctl-tramp-method "scpx"
+  "The TRAMP method to use when remotely accessing Systemd Unit files."
+  :group 'systemctl
+  :type (cons 'choice
+	      (mapcar (lambda (x) (list 'const (car x)))
+		      tramp-methods))))
+
 (defvar-local systemctl-bus :system
   "D-Bus bus to use when accessing Systemd.")
 
+(defvar systemctl-list-units-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\C-m" #'systemctl-find-file)
+    (define-key map "start" #'systemctl-start)
+    (define-key map "stop"  #'systemctl-stop)
+    map)
+  "Keymap for `systemctl-list-units-mode'.")
+
+(defun systemctl-bus ()
+  (when (stringp systemctl-bus)
+    (dbus-init-bus systemctl-bus))
+  systemctl-bus)
+      
 (defun systemctl-list-units-entries ()
   (mapcar (lambda (desc)
             (list (nth 6 desc)
@@ -66,12 +91,12 @@
                           (nth 3 desc)
                           (nth 4 desc)
                           (nth 1 desc))))
-          (systemd-ListUnits systemctl-bus)))
+          (systemd-ListUnits (systemctl-bus))))
 
 (defun systemctl-unescape-unit-name (string)
   (while (string-match "\\\\x\\([0-9a-f]\\{2\\}\\)" string)
     (setq string
-          (replace-match (string (string-to-int (match-string 1 string) 16))
+          (replace-match (string (string-to-number (match-string 1 string) 16))
                          t t string)))
   string)
 
@@ -91,15 +116,8 @@
     (put-text-property beg (point) 'tabulated-list-id id)
     (put-text-property beg (point) 'tabulated-list-entry cols)))
 
-(defvar systemctl-list-units-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "\C-m" #'systemctl-find-file)
-    (define-key map "start" #'systemctl-start)
-    (define-key map "stop"  #'systemctl-stop)
-    map)
-  "Keymap for `systemctl-list-units-mode'.")
-
-(define-derived-mode systemctl-list-units-mode tabulated-list-mode "Systemd-Units"
+(define-derived-mode systemctl-list-units-mode tabulated-list-mode
+  "Systemd-Units"
   "Major mode for displaying a list of Systemd Units."
   (setq tabulated-list-entries #'systemctl-list-units-entries
         tabulated-list-format    systemctl-list-units-format
@@ -109,25 +127,25 @@
 (defun systemctl-list-units (&optional host)
   "Display a list of all Systemd Units."
   (interactive
-   (list (when current-prefix-arg
+   (list (when (equal current-prefix-arg '(4))
            (read-string "Remote host: "))))
-  (let ((buffer-name (or (and host (format "*Systemd Units (%s)*" host))
-                         "*Systemd Units*")))
-    (with-current-buffer (get-buffer-create buffer-name)
-      (systemctl-list-units-mode)
-      (setq systemctl-bus (or (when host
-                                (let ((bus (systemd-remote-bus host)))
-                                  (dbus-init-bus bus)
-                                  bus))
-			      (default-value systemctl-bus)))
-      (tabulated-list-print)
-      (pop-to-buffer (current-buffer)))))
+  
+  (with-current-buffer (let ((buffer-name (if host
+					      (format "*Systemd Units (%s)*"
+						      host)
+					    "*Systemd Units*")))
+			 (get-buffer-create buffer-name))
+    (systemctl-list-units-mode)
+    (when host
+      (setq systemctl-bus (systemd-remote-bus host)))
+    (tabulated-list-print)
+    (pop-to-buffer (current-buffer))))
 
 (defun systemctl-start (unit)
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StartUnit systemctl-bus unit "replace")
+  (systemd-StartUnit (systemctl-bus) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
@@ -135,15 +153,23 @@
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StopUnit systemctl-bus unit "replace")
+  (systemd-StopUnit (systemctl-bus) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
 (defun systemctl-find-file (unit)
   (interactive
    (list (or (tabulated-list-get-id)
-	     (systemd-GetUnit :system (read-string "Unit: ")))))
-  (find-file (systemd-unit-FragmentPath :system unit)))
+	     (systemd-GetUnit (systemctl-bus) (read-string "Unit: ")))))
+  (let ((fragment-path (systemd-unit-FragmentPath (systemctl-bus) unit)))
+    (when fragment-path
+      (if (and (stringp systemctl-bus)
+	       (string-match "unixexec:path=ssh,.*argv2=\\([^,]*\\),"
+			     systemctl-bus))
+	  (let ((host (match-string 1 systemctl-bus)))
+	    (find-file (concat "/" systemctl-tramp-method ":" host ":"
+			       fragment-path)))
+	(find-file fragment-path)))))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here
