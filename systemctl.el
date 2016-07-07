@@ -38,7 +38,7 @@
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
-		 (list :tag "Active"
+                 (list :tag "Active"
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
@@ -50,10 +50,13 @@
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
-		 (list :tag "Description"
+                 (list :tag "Description"
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))))
+
+(defvar-local systemctl-list-units-bus
+  "D-Bus bus to use when accessing Systemd.")
 
 (defun systemctl-list-units-entries ()
   (mapcar (lambda (desc)
@@ -63,27 +66,27 @@
                           (nth 3 desc)
                           (nth 4 desc)
                           (nth 1 desc))))
-          (systemd-ListUnits)))
+          (systemd-ListUnits systemctl-list-units-bus)))
 
 (defun systemctl-unescape-unit-name (string)
   (while (string-match "\\\\x\\([0-9a-f]\\{2\\}\\)" string)
     (setq string
-	  (replace-match (string (string-to-int (match-string 1 string) 16))
-			 t t string)))
+          (replace-match (string (string-to-int (match-string 1 string) 16))
+                         t t string)))
   string)
 
 (defun systemctl-list-units-print-entry (id cols)
   "Insert a Systemd Units List entry at point."
   (let ((beg   (point))
-	(x     (max tabulated-list-padding 0))
-	(inhibit-read-only t))
+        (x     (max tabulated-list-padding 0))
+        (inhibit-read-only t))
     (if (> tabulated-list-padding 0)
-	(insert (make-string x ?\s)))
+        (insert (make-string x ?\s)))
     (dotimes (n (length tabulated-list-format))
       (let ((desc (aref cols n)))
-	(when (= n 0)
-	  (setq desc (systemctl-unescape-unit-name desc)))
-	(setq x (tabulated-list-print-col n desc x))))
+        (when (= n 0)
+          (setq desc (systemctl-unescape-unit-name desc)))
+        (setq x (tabulated-list-print-col n desc x))))
     (insert ?\n)
     (put-text-property beg (point) 'tabulated-list-id id)
     (put-text-property beg (point) 'tabulated-list-entry cols)))
@@ -100,22 +103,32 @@
   "Major mode for displaying a list of Systemd Units."
   (setq tabulated-list-entries #'systemctl-list-units-entries
         tabulated-list-format    systemctl-list-units-format
-	tabulated-list-printer #'systemctl-list-units-print-entry)
+        tabulated-list-printer #'systemctl-list-units-print-entry)
   (tabulated-list-init-header))
   
-(defun systemctl-list-units ()
+(defun systemctl-list-units (&optional host)
   "Display a list of all Systemd Units."
-  (interactive)
-  (with-current-buffer (get-buffer-create "*Systemd Units*")
-    (systemctl-list-units-mode)
-    (tabulated-list-print)
-    (pop-to-buffer (current-buffer))))
+  (interactive
+   (list (when current-prefix-arg
+           (read-string "Remote host: "))))
+  (let ((buffer-name (or (and host (format "*Systemd Units (%s)*" host))
+			 "*Systemd Units*")))
+    (with-current-buffer (get-buffer-create buffer-name)
+      (systemctl-list-units-mode)
+      (setq systemctl-list-units-bus (or (when host
+					   (let ((bus (systemd-remote-bus
+						       host)))
+					     (dbus-init-bus bus)
+					     bus))
+					 :system))
+      (tabulated-list-print)
+      (pop-to-buffer (current-buffer)))))
 
 (defun systemctl-start (unit)
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StartUnit unit "replace")
+  (systemd-StartUnit (or systemctl-list-units-bus :system) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
@@ -123,14 +136,15 @@
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StopUnit unit "replace")
+  (systemd-StopUnit (or systemctl-list-units-bus :system) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
 (defun systemctl-find-file (unit)
   (interactive
-   (list (or (tabulated-list-get-id) (systemd-GetUnit (read-string "Unit: ")))))
-  (find-file (systemd-unit-FragmentPath unit)))
+   (list (or (tabulated-list-get-id)
+	     (systemd-GetUnit :system (read-string "Unit: ")))))
+  (find-file (systemd-unit-FragmentPath :system unit)))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here

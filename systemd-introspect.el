@@ -76,20 +76,25 @@
 			   (name (intern (concat prefix property)))
 			   (readwrite (string-equal "readwrite"
 						    (cdr (assq 'access (cadr interface-item))))))
-		      (push `(defun ,name ,(if object-interface '(path) ())
+		      (push `(defun ,name (bus ,@(if object-interface
+						     '(path)
+						   ()))
 			       ,(if readwrite
 				    "Use `setf' to set the value of this property."
 				  "Read only property.")
 			       (dbus-get-property
-				:system ,service
+				bus ,service
 				,(if object-interface 'path path)
 				,interface ,property))
 			    forms)
 		      (when readwrite
 			(push `(gv-define-setter ,name
-				   ,(if object-interface '(value path) '(value))
+				   (value bus
+					  ,@(if object-interface
+						'(path)
+					      '()))
 				 `(dbus-set-property
-				   :system
+				   ,bus
 				   ,,service ,,(if object-interface 'path path)
 				   ,,interface ,,property ,value))
 			      forms))))
@@ -97,10 +102,11 @@
 		   ((eq 'method (car-safe interface-item))
 		    (let* ((method (cdr (assq 'name (cadr interface-item))))
 			   (name (intern (concat prefix method))))
-		      (push `(defun ,name (,@(when object-interface '(path))
+		      (push `(defun ,name (bus ,@(when object-interface
+						   '(path))
 					   &rest args)
 			       (apply #'dbus-call-method
-				      :system ,service ,(if object-interface 'path path) ,interface ,method args))
+				      bus ,service ,(if object-interface 'path path) ,interface ,method args))
 			    forms))))))))))))
        ((eq 'node (car-safe item))
 	(let ((name (cdr (assq 'name (cadr item)))))

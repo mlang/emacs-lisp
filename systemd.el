@@ -37,5 +37,27 @@
 (systemd-define "timedate1")
 (systemd-define "machine1")
 
+(defun systemd-escape-dbus-address (string)
+  (apply #'concat (mapcar (lambda (c)
+                            (if (or (and (>= c ?a) (<= c ?z))
+                                    (and (>= c ?A) (<= c ?Z))
+                                    (and (>= c ?0) (<= c ?9))
+                                    (= c ?-) (= c ?_)
+                                    (= c ?/) (= c ?\\)
+                                    (= c ?.))
+                                (string c)
+                              (format "%%%02x" c)))
+                          string)))
+
+(defun systemd-remote-bus (host &optional address)
+  (unless address
+    (setq address "unix:path=/run/dbus/system_bus_socket"))
+  (concat "unixexec:"
+          "path=ssh"
+          ",argv1=-xT"
+          ",argv2=" (systemd-escape-dbus-address host)
+          ",argv3=systemd-stdio-bridge"
+          ",argv4=" (systemd-escape-dbus-address (concat "--bus-path=" address))))
+
 (provide 'systemd)
 ;;; systemd.el ends here
