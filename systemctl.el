@@ -55,7 +55,7 @@
                        (number :tag "Width")
                        (boolean :tag "Sortable"))))
 
-(defvar-local systemctl-list-units-bus
+(defvar-local systemctl-bus :system
   "D-Bus bus to use when accessing Systemd.")
 
 (defun systemctl-list-units-entries ()
@@ -66,7 +66,7 @@
                           (nth 3 desc)
                           (nth 4 desc)
                           (nth 1 desc))))
-          (systemd-ListUnits systemctl-list-units-bus)))
+          (systemd-ListUnits systemctl-bus)))
 
 (defun systemctl-unescape-unit-name (string)
   (while (string-match "\\\\x\\([0-9a-f]\\{2\\}\\)" string)
@@ -112,15 +112,14 @@
    (list (when current-prefix-arg
            (read-string "Remote host: "))))
   (let ((buffer-name (or (and host (format "*Systemd Units (%s)*" host))
-			 "*Systemd Units*")))
+                         "*Systemd Units*")))
     (with-current-buffer (get-buffer-create buffer-name)
       (systemctl-list-units-mode)
-      (setq systemctl-list-units-bus (or (when host
-					   (let ((bus (systemd-remote-bus
-						       host)))
-					     (dbus-init-bus bus)
-					     bus))
-					 :system))
+      (setq systemctl-bus (or (when host
+                                (let ((bus (systemd-remote-bus host)))
+                                  (dbus-init-bus bus)
+                                  bus))
+			      (default-value systemctl-bus)))
       (tabulated-list-print)
       (pop-to-buffer (current-buffer)))))
 
@@ -128,7 +127,7 @@
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StartUnit (or systemctl-list-units-bus :system) unit "replace")
+  (systemd-StartUnit systemctl-bus unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
@@ -136,7 +135,7 @@
   (interactive (list (or (and (tabulated-list-get-entry)
                               (aref (tabulated-list-get-entry) 0))
                          (read-string "Unit: "))))
-  (systemd-StopUnit (or systemctl-list-units-bus :system) unit "replace")
+  (systemd-StopUnit systemctl-bus unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
