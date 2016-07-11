@@ -24,8 +24,9 @@
 
 ;;; Code:
 
-(require 'cl)
+(require 'cl-lib)
 (require 'dbus)
+(require 'pcase)
 (require 'tabulated-list)
 
 (defconst bluez-service "org.bluez")
@@ -36,38 +37,45 @@
   "D-Bus path of the Emacs agent object used to receive PIN code requests.")
 
 (defun bluez-objects ()
-  (dbus-get-all-managed-objects :system bluez-service "/"))
+  (let ((objects (dbus-get-all-managed-objects :system bluez-service "/")))
+    (dolist (object objects objects)
+      (if (and (cdr object) (cadr object))
+	  (setcdr object
+		  (dolist (iface-entry (cadr object) (cadr object))
+		    (if (cadr iface-entry)
+			(setcdr iface-entry (cadr iface-entry))
+		      (setcdr iface-entry nil))))
+	(setcdr object nil)))))
 
-(defun bluez-property (interface path property)
+(defun bluez-property (path interface property)
   (dbus-get-property :system bluez-service path interface property))
 
-(gv-define-setter bluez-property (value interface path property)
+(gv-define-setter bluez-property (value path interface property)
   `(dbus-set-property :system bluez-service
 		      ,path ,interface ,property ,value))
 
 ;;; org.bluez.Adapter1
 (defconst bluez-interface-adapter "org.bluez.Adapter1")
 
-(defun bluez-call-adapter-method (adapter method &rest args)
-  (apply #'dbus-call-method :system bluez-service (bluez-adapter-path adapter)
-         bluez-interface-adapter method args))
-
-(defun bluez-adapter-property (adapter property)
-  (bluez-property bluez-interface-adapter (bluez-adapter-path adapter) property))
-
-(gv-define-setter bluez-adapter-property (value adapter property)
-  `(setf (bluez-property bluez-interface-adapter (bluez-adapter-path ,adapter) ,property) ,value))
-
 (defun bluez-adapter-path (adapter)
   (if (string-prefix-p bluez-path adapter)
       adapter
     (concat bluez-path "/" adapter)))
 
+(defun bluez-call-adapter-method (adapter method &rest args)
+  (apply #'dbus-call-method :system bluez-service (bluez-adapter-path adapter)
+         bluez-interface-adapter method args))
+
+(defun bluez-adapter-property (adapter property)
+  (bluez-property (bluez-adapter-path adapter) bluez-interface-adapter property))
+
+(gv-define-setter bluez-adapter-property (value adapter property)
+  `(setf (bluez-property (bluez-adapter-path ,adapter) bluez-interface-adapter ,property) ,value))
+
 (defun bluez-adapter-paths ()
   (mapcar #'car
-	  (remove-if-not (apply-partially #'assoc bluez-interface-adapter)
-			 (bluez-objects)
-			 :key #'cadr)))
+	  (cl-remove-if-not (apply-partially #'assoc bluez-interface-adapter)
+			    (bluez-objects) :key #'cdr)))
 
 ;; org.bluez.Adapter1.Address
 (defun bluez-adapter-address (adapter)
@@ -174,20 +182,28 @@ of all known devices."
          bluez-interface-device method handler args))
 
 (defun bluez-device-paths ()
-  (mapcar #'car (remove-if-not (apply-partially #'assoc bluez-interface-device)
-                               (bluez-objects)
-                               :key #'cadr)))
+  (mapcar #'car (cl-remove-if-not
+		 (apply-partially #'assoc bluez-interface-device)
+		 (bluez-objects)
+		 :key #'cdr)))
 
 (defun bluez-read-unpaired-device-path (prompt)
-  (let* ((unpaired-devices (remove-if (lambda (interfaces)
-                                        (let ((device-interface
-                                               (cdr (assoc bluez-interface-device
-                                                           interfaces))))
-                                          (or (not device-interface)
-                                              (cdr (assoc "Paired" (car device-interface))))))
-                                      (bluez-objects) :key #'cadr))
+  (let* ((unpaired-devices
+	  (cl-remove-if
+	   (lambda (interfaces)
+	     (let ((device-interface
+		    (cdr (assoc
+			  bluez-interface-device
+			  interfaces))))
+	       (or (not device-interface)
+		   (cdr (assoc
+			 "Paired"
+			 device-interface)))))
+	   (bluez-objects) :key #'cdr))
          (table (mapcar (lambda (dev)
-                          (cons (let ((device-properties (cadr (assoc bluez-interface-device (cadr dev)))))
+                          (cons (let ((device-properties
+				       (cdr (assoc bluez-interface-device
+						   (cdr dev)))))
                                   (format "%s (%s)"
                                           (or (cdr (assoc "Name" device-properties))
                                               (cdr (assoc "Alias" device-properties)))
@@ -197,17 +213,24 @@ of all known devices."
     (when table
       (let ((selection (completing-read prompt table nil t)))
         (when (and selection (not (string-equal selection "")))
-          (cadr (assoc selection table)))))))
+          (cdr (assoc selection table)))))))
 
 (defun bluez-read-untrusted-device-path (prompt)
-  (let* ((untrusted-devices (remove-if (lambda (interfaces)
-					 (let ((device-interface
-						(cdr (assoc bluez-interface-device
-							    interfaces))))
-					   (or (not device-interface)
-					       (not (cdr (assoc "Paired" (car device-interface))))
-					       (cdr (assoc "Trusted" (car device-interface))))))
-                                      (bluez-objects) :key #'cadr))
+  (let* ((untrusted-devices (cl-remove-if (lambda (interfaces)
+					    (let ((device-interface
+						   (cdr (assoc
+							 bluez-interface-device
+							 interfaces))))
+					      (or (not device-interface)
+						  (not
+						   (cdr (assoc
+							 "Paired"
+							 (car device-interface))))
+						  (cdr
+						   (assoc
+						    "Trusted"
+						    (car device-interface))))))
+					  (bluez-objects) :key #'cadr))
          (table (mapcar (lambda (dev)
                           (cons (let ((device-properties
 				       (cadr (assoc bluez-interface-device
@@ -246,52 +269,52 @@ of all known devices."
 
 ;; org.bluez.Device1.Address
 (defun bluez-device-address (device-path)
-  (bluez-property bluez-interface-device device-path "Address"))
+  (bluez-property device-path bluez-interface-device "Address"))
 
 ;; org.bluez.Device1.Name
 (defun bluez-device-name (device-path)
-  (bluez-property bluez-interface-device device-path "Name"))
+  (bluez-property device-path bluez-interface-device "Name"))
 
 ;; org.bluez.Device1.Alias
 (defun bluez-device-alias (device-path)
-  (bluez-property bluez-interface-device device-path "Alias"))
+  (bluez-property device-path bluez-interface-device "Alias"))
 
 (gv-define-setter bluez-device-alias (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Alias") ,value))
+  `(setf (bluez-property ,device-path bluez-interface-device "Alias") ,value))
 
 ;; org.bluez.Device1.Paired
 (defun bluez-device-paired-p (device-path)
-  (bluez-property bluez-interface-device device-path "Paired"))
+  (bluez-property device-path bluez-interface-device "Paired"))
 
 ;; org.bluez.Device1.Trusted
 (defun bluez-device-trusted-p (device-path)
-  (bluez-property bluez-interface-device device-path "Trusted"))
+  (bluez-property device-path bluez-interface-device "Trusted"))
 
 (gv-define-setter bluez-device-trusted-p (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Trusted") ,value))
+  `(setf (bluez-property ,device-path bluez-interface-device "Trusted") ,value))
 
 ;; org.bluez.Device1.Blocked
 (defun bluez-device-blocked-p (device-path)
-  (bluez-property bluez-interface-device device-path "Blocked"))
+  (bluez-property device-path bluez-interface-device "Blocked"))
 
 (gv-define-setter bluez-device-blocked-p (value device-path)
-  `(setf (bluez-property bluez-interface-device ,device-path "Blocked") ,value))
+  `(setf (bluez-property ,device-path bluez-interface-device "Blocked") ,value))
 
 ;; org.bluez.Device1.Connected
 (defun bluez-device-connected-p (device-path)
-  (bluez-property bluez-interface-device device-path "Connected"))
+  (bluez-property device-path bluez-interface-device "Connected"))
 
 ;; org.bluez.Device1.Adapter
 (defun bluez-device-adapter (device-path)
-  (bluez-property bluez-interface-device device-path "Adapter"))
+  (bluez-property device-path bluez-interface-device "Adapter"))
 
 ;;; org.bluez.Network1
 (defconst bluez-interface-network "org.bluez.Network1")
 
 (defun bluez-network-paths ()
-  (mapcar #'car (remove-if-not (apply-partially #'assoc bluez-interface-network)
-                               (bluez-objects)
-                               :key #'cadr)))
+  (mapcar #'car (cl-remove-if-not
+		 (apply-partially #'assoc bluez-interface-network)
+		 (bluez-objects) :key #'cdr)))
 
 
 ;;; AgentManager
@@ -299,7 +322,7 @@ of all known devices."
 (defconst bluez-interface-agent-manager "org.bluez.AgentManager1")
 
 (defun bluez-call-agent-manager-method (method &rest args)
-  (apply #'dbus-call-method :system bluez-service "/org/bluez"
+  (apply #'dbus-call-method :system bluez-service bluez-path
          bluez-interface-agent-manager method args))
 
 (defun bluez-agent-manager-register-agent (&optional object-path capabilities)
@@ -374,12 +397,30 @@ of all known devices."
                          (bluez-device-address device-path))))
          (bluez-device-paths)))
   (tabulated-list-init-header)
-  (tabulated-list-print))
+  (add-hook 'bluez-interface-added-hook
+	    #'bluez-update-device-properties
+	    nil 'local))
 
 ;;; Incoming signals
 
 (defun bluez-register-signal (interface method handler)
   (dbus-register-signal :system bluez-service nil interface method handler))
+
+(defun bluez-update-device-properties (interface properties)
+  (when (string-equal interface bluez-interface-device)
+    (let ((address (cdr (assoc "Address" properties)))
+	  (name (cdr (assoc "Name" properties)))
+	  (alias (cdr (assoc "Alias" properties))))
+      (when address
+	(let ((entry (assoc path tabulated-list-entries))
+	      (data (vector (or name "None") (or alias "None") address)))
+	  (if entry
+	      (setf (cadr entry) data)
+	    (push (list path data) tabulated-list-entries)))
+	(tabulated-list-revert)))))
+
+(defvar bluez-interface-added-hook nil
+  "Hook called when a interface (and its properties) is added.")
 
 (defun bluez-interfaces-added-handler (path interfaces-and-properties)
   ;; Make the structure more Lispy.
@@ -392,19 +433,9 @@ of all known devices."
 
   (when (buffer-live-p (get-buffer "*Bluetooth Devices*"))
     (with-current-buffer (get-buffer "*Bluetooth Devices*")
-      (let ((device-properties (cdr (assoc bluez-interface-device
-					   interfaces-and-properties))))
-        (when device-properties
-          (let ((address (cdr (assoc "Address" device-properties)))
-                (name (cdr (assoc "Name" device-properties)))
-                (alias (cdr (assoc "Alias" device-properties))))
-            (when address
-              (let ((entry (assoc path tabulated-list-entries))
-                    (data (vector (or name "None") (or alias "None") address)))
-                (if entry
-                    (setf (cadr entry) data)
-                (push (list path data) tabulated-list-entries)))
-              (tabulated-list-revert)))))))
+      (pcase-dolist (`(interface . properties) interfaces-and-properties)
+	(run-hook-with-args
+	 'bluez-interface-added-hook interface properties))))
   (message "%s %S" path interfaces-and-properties))
 
 (defvar bluez-interfaces-added-signal
@@ -412,31 +443,25 @@ of all known devices."
 			 "InterfacesAdded" #'bluez-interfaces-added-handler))
 
 (defun bluez-report-adapter-property-changes (path interface property value)
-  (when (and (string-equal interface bluez-interface-adapter))
-    (cond ((string-equal property "Discoverable")
-	   (if value
-	       (message "Adapter %s (%s) is now discoverable..."
-			(bluez-adapter-name path)
-			(bluez-adapter-address path))
-	     (message "Adapter %s (%s) is no longer discoverable."
-		      (bluez-adapter-name path)
-		      (bluez-adapter-address path))))
-	  ((string-equal property "Discovering")
-	   (if value
-	       (message "Adapter %s (%s) is discovering new devices..."
-			(bluez-adapter-name path)
-			(bluez-adapter-address path))
-	     (message "Adapter %s (%s) has stopped discovering new devices."
-		      (bluez-adapter-name path)
-		      (bluez-adapter-address path))))
-	  ((string-equal property "Pairable")
-	   (if value
-	       (message "Adapter %s (%s) is now pairable..."
-			(bluez-adapter-name path)
-			(bluez-adapter-address path))
-	     (message "Adapter %s (%s) is no longer pairable."
-		      (bluez-adapter-name path)
-		      (bluez-adapter-address path)))))))
+  (when (string-equal interface bluez-interface-adapter)
+    (pcase property
+      ("Discoverable"
+       (message (if value
+		    "Adapter %s (%s) is now discoverable..."
+		  "Adapter %s (%s) is no longer discoverable.")
+		(bluez-adapter-name path)
+		(bluez-adapter-address path)))
+      ("Discovering"
+       (message (if value "Adapter %s (%s) is discovering new devices..."
+		  "Adapter %s (%s) has stopped discovering new devices.")
+		(bluez-adapter-name path)
+		(bluez-adapter-address path)))
+      ("Pairable"
+       (message (if value
+		    "Adapter %s (%s) is now pairable..."
+		  "Adapter %s (%s) is no longer pairable.")
+		(bluez-adapter-name path)
+		(bluez-adapter-address path))))))
 
 (defvar bluez-property-changed-hook '(bluez-report-adapter-property-changes)
   "A list of functions to call when a BlueZ D-Bus property has changed.
@@ -473,6 +498,7 @@ Arguments to functions: (PATH INTERFACE PROPERTY).")
   (interactive)
   (with-current-buffer (get-buffer-create "*Bluetooth Devices*")
     (bluez-device-list-mode)
+    (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
 (defun bluetooth-start-discovery ()
