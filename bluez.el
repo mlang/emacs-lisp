@@ -3,7 +3,7 @@
 ;; Copyright (C) 2016  Mario Lang
 
 ;; Author: Mario Lang <mlang@delysid.org>
-;; Keywords: 
+;; Keywords: comm, hardware
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,12 +20,13 @@
 
 ;;; Commentary:
 
-;; D-Bus bindings for BlueZ, the Linux Bluetooth stack.
+;; 
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'dbus)
+(require 'gv)
 (require 'pcase)
 (require 'tabulated-list)
 
@@ -37,7 +38,11 @@
   "D-Bus path of the Emacs agent object used to receive PIN code requests.")
 
 (defun bluez-objects ()
+  "Return a list of all objects (adaptors, devices) known to BlueZ."
   (let ((objects (dbus-get-all-managed-objects :system bluez-service "/")))
+    ;; For some reason, `dbus-interface-objectmanager' returns extra levels
+    ;; of nesting in some places.  Lets correct this so that we keep adjustments
+    ;; in only one place.
     (dolist (object objects objects)
       (if (and (cdr object) (cadr object))
 	  (setcdr object
@@ -55,6 +60,7 @@
 		      ,path ,interface ,property ,value))
 
 ;;; org.bluez.Adapter1
+
 (defconst bluez-interface-adapter "org.bluez.Adapter1")
 
 (defun bluez-adapter-path (adapter)
@@ -117,23 +123,27 @@ See also `bluez-adapter-discoverable-timeout'."
 
 ;; org.bluez.Adapter1.DiscoverableTimeout
 (defun bluez-adapter-discoverable-timeout (adapter)
+  "The time (in seconds) after which discoverable mode is automatically disabled.
+Use can use `setf' to set the value of this adapter property."
   (bluez-adapter-property adapter "DiscoverableTimeout"))
 
 (gv-define-setter bluez-adapter-discoverable-timeout (value adapter)
   `(setf (bluez-adapter-property ,adapter "DiscoverableTimeout") ,value))
 
 ;; org.bluez.Adapter1.Pairable
-(defun bluez-adapter-pairable-p (adapter)
+(defun bluez-adapter-pairable (adapter)
   "Indicates that ADAPTER is currently pairable.
 You can use `setf' to set the value of this property.
 See also `bluez-adapter-pairable-timeout'."
   (bluez-adapter-property adapter "Pairable"))
 
-(gv-define-setter bluez-adapter-pairable-p (value adapter)
+(gv-define-setter bluez-adapter-pairable (value adapter)
   `(setf (bluez-adapter-property ,adapter "Pairable") ,value))
 
 ;; org.bluez.Adapter1.PairableTimeout
 (defun bluez-adapter-pairable-timeout (adapter)
+  "The time (in seconds) after whiich ADAPTER stops to be pairable again.
+Use can use `setf' to set the value of this property."
   (bluez-adapter-property adapter "PairableTimeout"))
 
 (gv-define-setter bluez-adapter-pairable-timeout (value adapter)
@@ -287,10 +297,10 @@ of all known devices."
   (bluez-property device-path bluez-interface-device "Paired"))
 
 ;; org.bluez.Device1.Trusted
-(defun bluez-device-trusted-p (device-path)
+(defun bluez-device-trusted (device-path)
   (bluez-property device-path bluez-interface-device "Trusted"))
 
-(gv-define-setter bluez-device-trusted-p (value device-path)
+(gv-define-setter bluez-device-trusted (value device-path)
   `(setf (bluez-property ,device-path bluez-interface-device "Trusted") ,value))
 
 ;; org.bluez.Device1.Blocked
@@ -383,7 +393,8 @@ of all known devices."
 		"RequestConfirmation" #'bluez-agent-request-confirmation-handler)
 	       (bluez-register-agent-method
 		"AuthorizeService" #'bluez-agent-authorize-service-handler))
-    (bluez-agent-manager-register-agent bluez-path-emacs-agent bluez-agent-capabilities)))
+    (bluez-agent-manager-register-agent
+     bluez-path-emacs-agent bluez-agent-capabilities)))
 
 (define-derived-mode bluez-device-list-mode tabulated-list-mode "BlueZ"
   "Major mode for displaying Bluetooth remote devices."
@@ -419,8 +430,11 @@ of all known devices."
 	    (push (list path data) tabulated-list-entries)))
 	(tabulated-list-revert)))))
 
-(defvar bluez-interface-added-hook nil
-  "Hook called when a interface (and its properties) is added.")
+(defcustom bluez-interface-added-hook nil
+  "Hook called when a D-Bus interface is added to a BlueZ object.
+Functions on this hook receive arguments (interface properties) where
+properties is an alist of all known properties of that interface."
+  :type 'hook)
 
 (defun bluez-interfaces-added-handler (path interfaces-and-properties)
   ;; Make the structure more Lispy.
@@ -433,7 +447,7 @@ of all known devices."
 
   (when (buffer-live-p (get-buffer "*Bluetooth Devices*"))
     (with-current-buffer (get-buffer "*Bluetooth Devices*")
-      (pcase-dolist (`(interface . properties) interfaces-and-properties)
+      (pcase-dolist (`(,interface . ,properties) interfaces-and-properties)
 	(run-hook-with-args
 	 'bluez-interface-added-hook interface properties))))
   (message "%s %S" path interfaces-and-properties))
@@ -525,15 +539,15 @@ An automatic timeout (in seconds) can be set by providing a numeric prefix argum
 
 (defun bluetooth-make-pairable (&optional timeout)
   "Make all Bluetooth adapters pairable.
-An automatic timeout (in seconds) can be set by providing a numeric prefix
-argument."
+If called interactively, an automatic timeout (in seconds) can be set by
+providing a numeric prefix argument."
   (interactive "P")
   (bluez-agent-manager-request-default-agent bluez-path-emacs-agent)
   (dolist (adapter (bluez-adapter-paths))
-    (unless (bluez-adapter-pairable-p adapter)
+    (unless (bluez-adapter-pairable adapter)
       (when (numberp timeout)
         (setf (bluez-adapter-pairable-timeout adapter) timeout))
-      (setf (bluez-adapter-pairable-p adapter) t))))
+      (setf (bluez-adapter-pairable adapter) t))))
 
 (defun bluetooth-initiate-pairing (device)
   (interactive (list (bluez-read-unpaired-device-path "Initiate pairing to: ")))
@@ -548,7 +562,7 @@ argument."
   (if (not device)
       (when (called-interactively-p 'interactive)
 	(message "No paired but untrusted devices found."))
-    (setf (bluez-device-trusted-p device) t)))
+    (setf (bluez-device-trusted device) t)))
 
 (provide 'bluez)
 ;;; bluez.el ends here
