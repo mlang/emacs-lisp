@@ -20,7 +20,26 @@
 
 ;;; Commentary:
 
-;; 
+;; This package provides a front end to Systemd.
+;;
+;; Use `M-x systemctl-list-units RET' to see a list of all known
+;; Systemd units (on localhost) and their status.  With a prefix argument
+;; (`C-u') it will prompt for a remote host.
+;;
+;; In systemctl-list-units-mode, `RET' will visit all relevant
+;; configuration fragments for the unit at point (the equivalent of
+;; "systemctl cat some.service").  With a `C-u' prefix argument,
+;; it will prompt for a new override.conf file to create (somewhat equivalent
+;; to "systemctl edit some.service").
+;;
+;; Key bindings `s t a r t' and `s t o p' can be used to start and stop
+;; services.
+
+;;; Todo:
+
+;; * Create and bind interactive functions for enabling and disabling units.
+;; * Menu entries for `systemctl-list-units-mode'.
+;; * Optionally automatically reload the Systemd daemon when a unit buffer is saved.
 
 ;;; Code:
 
@@ -31,13 +50,18 @@
 (defgroup systemctl nil
   "Interface to Systemd.")
 
+(defcustom systemctl-default-override-file-name "override.conf"
+  "Default file name for new override.conf files."
+  :group 'systemctl
+  :type 'string)
+
 (defcustom systemctl-list-units-format
   (vector (list "Unit" 22 t)
           (list "Active" 9 t)
           (list "Loaded" 8 t)
           (list "State" 8 t)
           (list "Description" 50 nil))
-  "Column format specification for `systemctl-list-units'."
+  "Column format specification for the `systemctl-list-units' command."
   :group 'systemctl
   :type '(vector (list :tag "Unit"
                        (string :tag "Title")
@@ -69,7 +93,10 @@
 		      tramp-methods)))
 
 (defvar-local systemctl-bus :system
-  "Default D-Bus bus to use when accessing Systemd.")
+  "Default D-Bus bus to use when accessing Systemd.
+You should use the function `systemctl-bus' to retrieve the value of this
+variable to make sure the bus is properly initialized in case it is pointing
+to a remote machine.")
 
 (defvar systemctl-list-units-mode-map
   (let ((map (make-sparse-keymap)))
@@ -86,6 +113,8 @@
   systemctl-bus)
       
 (defun systemctl-list-units-entries ()
+  "Retrieve a list of units known to Systemd.
+See `systemctl-list-units-format' and `tabulated-list-entries'."
   (mapcar (lambda (desc)
             (list (nth 6 desc)
                   (vector (nth 0 desc)
@@ -103,7 +132,8 @@
   string)
 
 (defun systemctl-list-units-print-entry (id cols)
-  "Insert a Systemd Units List entry at point."
+  "Insert a Systemd Units List entry at point.
+See `tabulated-list-printer'."
   (let ((beg (point))
         (x (max tabulated-list-padding 0))
         (inhibit-read-only t))
@@ -142,25 +172,39 @@
     (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
+(defun systemctl-list-units-get-unit ()
+  (when (eq major-mode 'systemctl-list-units-mode)
+    (let ((entry (tabulated-list-get-entry)))
+      (when entry
+	(aref entry 0)))))
+
 (defun systemctl-start (unit)
-  (interactive (list (or (and (tabulated-list-get-entry)
-                              (aref (tabulated-list-get-entry) 0))
+  "Start Systemd UNIT."
+  (interactive (list (or (systemctl-list-units-get-unit)
                          (read-string "Unit: "))))
   (systemd-StartUnit (systemctl-bus) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
 (defun systemctl-stop (unit)
-  (interactive (list (or (and (tabulated-list-get-entry)
-                              (aref (tabulated-list-get-entry) 0))
+  (interactive (list (or (systemctl-list-units-get-unit)
                          (read-string "Unit: "))))
   (systemd-StopUnit (systemctl-bus) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
+(defun systemctl-file-prefix ()
+  (if (and (stringp systemctl-bus)
+	   (string-match "unixexec:path=ssh,.*argv2=\\([^,]*\\),"
+			 systemctl-bus))
+      (let ((host (match-string 1 systemctl-bus)))
+	(concat "/" systemctl-tramp-method ":" host ":"))
+    ""))
+
 (defun systemctl-find-fragment (unit)
   (interactive
-   (list (or (tabulated-list-get-id)
+   (list (or (and (eq major-mode 'systemctl-list-units-mode)
+		  (tabulated-list-get-id))
 	     (systemd-GetUnit (systemctl-bus) (read-string "Unit: ")))))
   (let ((fragment-path (systemd-unit-FragmentPath (systemctl-bus) unit)))
     (when fragment-path
@@ -170,7 +214,7 @@
 	  (let ((host (match-string 1 systemctl-bus)))
 	    (find-file (concat "/" systemctl-tramp-method ":" host ":"
 			       fragment-path)))
-	(find-file fragment-path)))))
+	(find-file (concat (systemctl-file-prefix) fragment-path))))))
 
 (defun systemctl-edit-unit-files (unit &optional override-file)
   "Visit all configuration files related to UNIT simultaneously.
@@ -185,46 +229,65 @@ given interactively, open a (new) override file."
 	  (override-file
 	   (when (equal current-prefix-arg '(4))
 	     (read-file-name "Override file: "
-			     (concat "/etc/systemd/system/" unit ".d/") nil nil
-			     "override.conf"))))
+			     (concat (systemctl-file-prefix)
+				     "/etc/systemd/system/" unit ".d/")
+			     nil nil
+			     systemctl-default-override-file-name))))
      (list unit-path override-file)))
-  (let ((files (systemd-unit-DropInPaths (systemctl-bus) unit)))
+  (let ((files (mapcar (apply-partially #'concat (systemctl-file-prefix))
+		       (systemd-unit-DropInPaths (systemctl-bus) unit))))
     (when override-file
-      (let ((directory (file-name-directory override-file)))
-	(setq files (append (list override-file) files))
-	(unless (file-directory-p directory)
-	  (make-directory directory))))
+      (push override-file files))
     (let ((path (systemd-unit-FragmentPath (systemctl-bus) unit)))
       (when (not (string= path ""))
-	(setq files (append files (list path)))))
+	(setq files (nconc files
+			   (list (concat (systemctl-file-prefix) path))))))
     (let ((path (systemd-unit-SourcePath (systemctl-bus) unit)))
       (when (not (string= path ""))
-	(setq files (append files (list path)))))
-    (when files
-      (let ((buffers (mapcar #'find-file-noselect files)))
-	(pop-to-buffer (car buffers))
-	(when (cdr buffers)
-	  (delete-other-windows)
-	  (dolist (buffer (cdr buffers))
-	    (let ((window (split-window (car (last (window-list))))))
-	      (shrink-window-if-larger-than-buffer)
-	      (set-window-buffer window buffer)))
-	  (mapc #'shrink-window-if-larger-than-buffer (window-list)))))))
+	(setq files (nconc files
+			   (list (concat (systemctl-file-prefix) path))))))
+    (if files
+	(let ((buffers (mapcar #'find-file-noselect files)))
+	  (pop-to-buffer (pop buffers))
+	  (when buffers
+	    (delete-other-windows)
+	    (dolist (buffer buffers)
+	      (let ((window (split-window (car (last (window-list))))))
+		(shrink-window-if-larger-than-buffer)
+		(set-window-buffer window buffer)))
+	    (dolist (window (window-list))
+	      (shrink-window-if-larger-than-buffer window))))
+      (when (called-interactively-p 'interactive)
+	(message "No configuration files associated with `%s'." unit)))))
 
 (defvar systemd-unit-font-lock-keywords
   '(;; [section]
     ("^[ \t]*\\[\\(Unit\\|Service\\)\\]"
      1 'font-lock-type-face)
-    ;; var=val or var[index]=val
+    ;; var=val
     ("^[ \t]*\\(.+?\\)[ \t]*="
      1 'font-lock-variable-name-face))
   "Keywords to highlight in Conf mode.")
 
-(define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
-  (conf-mode-initialize "#" systemd-unit-font-lock-keywords))
+(defvar systemd-unit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\t" #'pcomplete)
+    map))
 
-(mapc (apply-partially #'add-to-list 'auto-mode-alist)
-      '(("\\.service\\'" . systemd-unit-mode)))
+(define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
+  (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
+  (setq-local pcomplete-command-completion-function
+	      (lambda ()
+		(pcomplete-here '("Description" "Documentation"
+				  "Requires" "Requisite" "Wants" "BindsTo"
+				  "PartOf" "Conflicts" "Before" "After"
+				  "OnFailure" "PropagatesReloadTo" "ReloadPropagatedFrom"
+				  "JoinsNamespaceOf" "RequiresMountsFor"
+				  "OnFailureJobMode" "IgnoreOnIsolate"
+				  "StopWhenUnneeded" "RefuseManualStart" "RefuseManualStop"))))
+  (setq-local pcomplete-termination-string "="))
+
+(add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-unit-mode))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here
