@@ -1,4 +1,4 @@
-;;; systemctl.el --- Perform systemctl operations from within Emacs  -*- lexical-binding: t; -*-
+;;; systemctl.el --- Emacs interface to Systemd     -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Mario Lang
 
@@ -168,7 +168,8 @@ See `tabulated-list-printer'."
 			 (get-buffer-create buffer-name))
     (systemctl-list-units-mode)
     (when host
-      (setq systemctl-bus (systemd-remote-bus host)))
+      (setq systemctl-bus (systemd-remote-bus host)
+	    default-directory (concat (systemctl-file-prefix) "/")))
     (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
@@ -197,7 +198,8 @@ See `tabulated-list-printer'."
   (if (and (stringp systemctl-bus)
 	   (string-match "unixexec:path=ssh,.*argv2=\\([^,]*\\),"
 			 systemctl-bus))
-      (let ((host (match-string 1 systemctl-bus)))
+      (let ((host (systemd-unescape-dbus-address
+		   (match-string 1 systemctl-bus))))
 	(concat "/" systemctl-tramp-method ":" host ":"))
     ""))
 
