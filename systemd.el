@@ -28,6 +28,10 @@
 (require 'dbus)
 (require 'gv)
 
+(defconst systemd-dbus-service "org.freedesktop.systemd1")
+(defconst systemd-dbus-path "/org/freedesktop/systemd1")
+(defconst systemd-dbus-interface-manager "org.freedesktop.systemd.Manager")
+
 (systemd-define "systemd1")
 (systemd-define "login1")
 (systemd-define "network1")

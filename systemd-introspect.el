@@ -54,12 +54,18 @@
 	   ("org.freedesktop.machine1.Image" . "machined-image-")
 	   ("org.freedesktop.machine1.Machine" . "machined-machine-")))
 	(xml (dbus-introspect-xml :system service path)))
-    (dolist (item (and (eq (car-safe xml) 'node) (cddr xml)) interfaces)
+    (dolist (item (and (eq (car-safe xml) 'node) (xml-node-children xml)) interfaces)
       (cond
-       ((eq 'interface (car-safe item))
-	(let* ((interface (cdr (assq 'name (cadr item))))
+       ((and (listp item) (eq 'interface (car-safe item)))
+	(let* ((interface (xml-get-attribute-or-nil item 'name))
 	       (prefix (cdr (assoc interface prefixes)))
 	       (object-interface (not (string-match "\\(\\.Manager\\|1\\)$" interface)))
+	       (service (pcase service
+			  ("org.freedesktop.systemd1" 'systemd-dbus-service)
+			  (_ service)))
+	       (path (pcase path
+		       ("/org/freedesktop/systemd1" 'systemd-dbus-path)
+		       (_ path)))
 	       forms)
 	  (when (and prefix (not (assoc interface interfaces)))
 	    (setq
@@ -108,10 +114,10 @@
 			       (apply #'dbus-call-method
 				      bus ,service ,(if object-interface 'path path) ,interface ,method args))
 			    forms))))))))))))
-       ((eq 'node (car-safe item))
-	(let ((name (cdr (assq 'name (cadr item)))))
+       ((and (listp item) (eq 'node (xml-node-name item)))
+	(let ((name (xml-get-attribute-or-nil item 'name)))
 	  (setq interfaces (systemd-introspect
-			       service (concat path "/" name) interfaces))))))))
+			    service (concat path "/" name) interfaces))))))))
 
 (defmacro systemd-define (suffix)
   `(progn
