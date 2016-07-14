@@ -39,7 +39,8 @@
 
 ;; * Create and bind interactive functions for enabling and disabling units.
 ;; * Menu entries for `systemctl-list-units-mode'.
-;; * Optionally automatically reload the Systemd daemon when a unit buffer is saved.
+;; * Optionally automatically reload the Systemd daemon when a unit buffer is
+;;   saved.
 
 ;;; Code:
 
@@ -169,7 +170,7 @@ See `tabulated-list-printer'."
     (systemctl-list-units-mode)
     (when host
       (setq systemctl-bus (systemd-remote-bus host)
-	    default-directory (concat (systemctl-file-prefix) "/")))
+	    default-directory (systemctl-file-name "/")))
     (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
@@ -194,14 +195,14 @@ See `tabulated-list-printer'."
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
 
-(defun systemctl-file-prefix ()
+(defun systemctl-file-name (file-name)
   (if (and (stringp systemctl-bus)
 	   (string-match "unixexec:path=ssh,.*argv2=\\([^,]*\\),"
 			 systemctl-bus))
       (let ((host (systemd-unescape-dbus-address
 		   (match-string 1 systemctl-bus))))
-	(concat "/" systemctl-tramp-method ":" host ":"))
-    ""))
+	(concat "/" systemctl-tramp-method ":" host ":" file-name))
+    file-name))
 
 (defun systemctl-find-fragment (unit)
   (interactive
@@ -210,13 +211,7 @@ See `tabulated-list-printer'."
 	     (systemd-GetUnit (systemctl-bus) (read-string "Unit: ")))))
   (let ((fragment-path (systemd-unit-FragmentPath (systemctl-bus) unit)))
     (when fragment-path
-      (if (and (stringp systemctl-bus)
-	       (string-match "unixexec:path=ssh,.*argv2=\\([^,]*\\),"
-			     systemctl-bus))
-	  (let ((host (match-string 1 systemctl-bus)))
-	    (find-file (concat "/" systemctl-tramp-method ":" host ":"
-			       fragment-path)))
-	(find-file (concat (systemctl-file-prefix) fragment-path))))))
+      (find-file (systemctl-file-name fragment-path)))))
 
 (defun systemctl-edit-unit-files (unit &optional override-file)
   "Visit all configuration files related to UNIT simultaneously.
@@ -231,23 +226,23 @@ given interactively, open a (new) override file."
 	  (override-file
 	   (when (equal current-prefix-arg '(4))
 	     (read-file-name "Override file: "
-			     (concat (systemctl-file-prefix)
-				     "/etc/systemd/system/" unit ".d/")
+			     (systemctl-file-name
+			      (concat "/etc/systemd/system/" unit ".d/"))
 			     nil nil
 			     systemctl-default-override-file-name))))
      (list unit-path override-file)))
-  (let ((files (mapcar (apply-partially #'concat (systemctl-file-prefix))
+  (let ((files (mapcar #'systemctl-file-name
 		       (systemd-unit-DropInPaths (systemctl-bus) unit))))
     (when override-file
       (push override-file files))
     (let ((path (systemd-unit-FragmentPath (systemctl-bus) unit)))
       (when (not (string= path ""))
 	(setq files (nconc files
-			   (list (concat (systemctl-file-prefix) path))))))
+			   (list (systemctl-file-name path))))))
     (let ((path (systemd-unit-SourcePath (systemctl-bus) unit)))
       (when (not (string= path ""))
 	(setq files (nconc files
-			   (list (concat (systemctl-file-prefix) path))))))
+			   (list (systemctl-file-name path))))))
     (if files
 	(let ((buffers (mapcar #'find-file-noselect files)))
 	  (pop-to-buffer (pop buffers))
