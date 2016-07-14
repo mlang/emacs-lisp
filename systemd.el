@@ -49,6 +49,13 @@
                               (format "%%%02x" c)))
                           string)))
 
+(defun systemd-unescape-dbus-address (string)
+  (while (string-match "%\\([0-9a-f]\\{2\\}\\)" string)
+    (setq string
+	  (replace-match
+	   (string (string-to-number (match-string 1 string) 16)) t t string)))
+  string)
+
 (defun systemd-remote-bus (host &optional address)
   (unless address
     (setq address "unix:path=/run/dbus/system_bus_socket"))
