@@ -1,4 +1,4 @@
-;;; systemd-mode.el --- Major mode for Systemd Unit files  -*- lexical-binding: t; -*-
+;;; systemd-mode.el --- Major mode for systemd unit files  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Mario Lang
 
@@ -18,11 +18,9 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-;;; Commentary:
-
-;; 
-
 ;;; Code:
+
+(require 'conf-mode)
 
 (defvar systemd-unit-font-lock-keywords
   '(;; [section]
