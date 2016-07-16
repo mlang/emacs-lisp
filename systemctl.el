@@ -44,7 +44,6 @@
 ;;   visit N files in a frame, each in a separate window.  The current approach
 ;;   feels a bit crude, see `systemctl-edit-unit-files'.
 ;; * Create and bind interactive functions for enabling and disabling units.
-;; * Finish systemd-unit-mode.
 ;; * Optionally automatically reload the Systemd daemon when a unit buffer is
 ;;   saved.
 ;; * Detect if we are not root, and use the sudo method to edit
@@ -55,7 +54,6 @@
 
 ;;; Code:
 
-(require 'conf-mode)
 (require 'systemd)
 (require 'tabulated-list)
 (require 'tramp)
@@ -168,6 +166,7 @@ See `tabulated-list-printer'."
         tabulated-list-printer #'systemctl-list-units-print-entry)
   (tabulated-list-init-header))
   
+;;;###autoload
 (defun systemctl-list-units (&optional host)
   "Display a list of all Systemd Units."
   (interactive
@@ -268,35 +267,6 @@ given interactively, open a (new) override file."
 	      (shrink-window-if-larger-than-buffer window))))
       (when (called-interactively-p 'interactive)
 	(message "No configuration files associated with `%s'." unit)))))
-
-(defvar systemd-unit-font-lock-keywords
-  '(;; [section]
-    ("^[ \t]*\\[\\(Unit\\|Service\\)\\]"
-     1 'font-lock-type-face)
-    ;; var=val
-    ("^[ \t]*\\(.+?\\)[ \t]*="
-     1 'font-lock-variable-name-face))
-  "Keywords to highlight in Conf mode.")
-
-(defvar systemd-unit-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "\t" #'pcomplete)
-    map))
-
-(define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
-  (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
-  (setq-local pcomplete-command-completion-function
-	      (lambda ()
-		(pcomplete-here '("Description" "Documentation"
-				  "Requires" "Requisite" "Wants" "BindsTo"
-				  "PartOf" "Conflicts" "Before" "After"
-				  "OnFailure" "PropagatesReloadTo" "ReloadPropagatedFrom"
-				  "JoinsNamespaceOf" "RequiresMountsFor"
-				  "OnFailureJobMode" "IgnoreOnIsolate"
-				  "StopWhenUnneeded" "RefuseManualStart" "RefuseManualStop"))))
-  (setq-local pcomplete-termination-string "="))
-
-(add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-unit-mode))
 
 (provide 'systemctl)
 ;;; systemctl.el ends here
