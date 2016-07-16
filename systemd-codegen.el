@@ -18,6 +18,22 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+;;; Commentary:
+
+;; This library is used to automatically generate D-Bus bindings for systemd
+;; and related components via introspection.
+;;
+;; The macro `systemd-codegen-define' can be used to generate Lisp code according
+;; to the currently available introspection data.  This can be useful for
+;; development.
+;;
+;; To avoid a dependency on systemd at compile time, `systemd-codegen-to-string'
+;; is provided to statically generate all the Lisp code for the currently running
+;; version of systemd.
+;;
+;; `systemd-codegen-to-string' is used to generate the bulk of the content of
+;; systemd.el.
+
 ;;; Code:
 
 (require 'dbus)
@@ -116,7 +132,7 @@
     (dolist (item
 	     (and (eq (car-safe xml) 'node)
 		  (xml-node-children xml))
-	     interfaces)
+	     (sort interfaces (lambda (a b) (string-lessp (car a) (car b)))))
       (cond
        ((and (listp item) (eq 'interface (car-safe item)))
 	(let* ((interface (xml-get-attribute-or-nil item 'name))
