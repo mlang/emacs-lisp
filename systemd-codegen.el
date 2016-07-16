@@ -190,14 +190,24 @@
 
 		     ((eq 'method (car-safe interface-item))
 		      (let* ((method (xml-get-attribute-or-nil interface-item 'name))
-			     (name (intern (concat prefix "-" method))))
+			     (name (intern (concat prefix "-" method)))
+			     (args (cl-remove-if-not
+				    (lambda (arg)
+				      (string= "in"
+					       (xml-get-attribute arg 'direction)))
+				    (xml-get-children interface-item 'arg))))
 			(push `(defun ,name (bus ,@(when object-interface
 						     '(path))
-						 &rest args)
-				 (apply #'dbus-call-method
+						 ,@(when args '(&rest args)))
+				 ,(if args
+				    `(apply #'dbus-call-method
 					bus ,service
 					,(if object-interface 'path path)
-					,interface ,method args))
+					,interface ,method args)
+				    `(dbus-call-method
+				      bus ,service
+				      ,(if object-interface 'path path)
+				      ,interface ,method)))
 			      forms)))))))))))))
        ((and (listp item) (eq 'node (xml-node-name item)))
 	(let ((name (xml-get-attribute-or-nil item 'name)))
@@ -238,6 +248,11 @@
     (while (re-search-forward "(apply #'dbus-call-method" nil t)
       (goto-char (match-beginning 0))
       (down-list 1) (forward-sexp 5) (insert "\n") (up-list -1) (indent-sexp)
+      (up-list 1))
+    (goto-char (point-min))
+    (while (re-search-forward "(dbus-call-method" nil t)
+      (goto-char (match-beginning 0))
+      (down-list 1) (forward-sexp 4) (insert "\n") (up-list -1) (indent-sexp)
       (up-list 1))
     (buffer-string)))
 

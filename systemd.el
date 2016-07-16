@@ -675,17 +675,17 @@
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "CancelJob" args))
 
-(defun systemd-ClearJobs (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "ClearJobs" args))
+(defun systemd-ClearJobs (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "ClearJobs"))
 
-(defun systemd-ResetFailed (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "ResetFailed" args))
+(defun systemd-ResetFailed (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "ResetFailed"))
 
-(defun systemd-ListUnits (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "ListUnits" args))
+(defun systemd-ListUnits (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "ListUnits"))
 
 (defun systemd-ListUnitsFiltered (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
@@ -699,21 +699,21 @@
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "ListUnitsByNames" args))
 
-(defun systemd-ListJobs (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "ListJobs" args))
+(defun systemd-ListJobs (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "ListJobs"))
 
-(defun systemd-Subscribe (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Subscribe" args))
+(defun systemd-Subscribe (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Subscribe"))
 
-(defun systemd-Unsubscribe (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Unsubscribe" args))
+(defun systemd-Unsubscribe (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Unsubscribe"))
 
-(defun systemd-Dump (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Dump" args))
+(defun systemd-Dump (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Dump"))
 
 (defun systemd-CreateSnapshot (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
@@ -723,33 +723,33 @@
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "RemoveSnapshot" args))
 
-(defun systemd-Reload (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Reload" args))
+(defun systemd-Reload (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Reload"))
 
-(defun systemd-Reexecute (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Reexecute" args))
+(defun systemd-Reexecute (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Reexecute"))
 
-(defun systemd-Exit (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Exit" args))
+(defun systemd-Exit (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Exit"))
 
-(defun systemd-Reboot (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Reboot" args))
+(defun systemd-Reboot (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Reboot"))
 
-(defun systemd-PowerOff (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "PowerOff" args))
+(defun systemd-PowerOff (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "PowerOff"))
 
-(defun systemd-Halt (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "Halt" args))
+(defun systemd-Halt (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "Halt"))
 
-(defun systemd-KExec (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "KExec" args))
+(defun systemd-KExec (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "KExec"))
 
 (defun systemd-SwitchRoot (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
@@ -767,9 +767,9 @@
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "UnsetAndSetEnvironment" args))
 
-(defun systemd-ListUnitFiles (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "ListUnitFiles" args))
+(defun systemd-ListUnitFiles (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "ListUnitFiles"))
 
 (defun systemd-ListUnitFilesByPatterns (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
@@ -819,9 +819,9 @@
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "SetDefaultTarget" args))
 
-(defun systemd-GetDefaultTarget (bus &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
-	 systemd-dbus-interface-manager "GetDefaultTarget" args))
+(defun systemd-GetDefaultTarget (bus)
+  (dbus-call-method bus systemd-dbus-service systemd-dbus-path
+		    systemd-dbus-interface-manager "GetDefaultTarget"))
 
 (defun systemd-PresetAllUnitFiles (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
@@ -923,9 +923,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-mount "TasksCurrent"))
 
-(defun systemd-mount-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-mount "GetProcesses" args))
+(defun systemd-mount-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-mount "GetProcesses"))
 
 (defun systemd-mount-Delegate (bus path)
   "Read only property."
@@ -1568,9 +1568,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-scope "Result"))
 
-(defun systemd-scope-Abandon (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-scope "Abandon" args))
+(defun systemd-scope-Abandon (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-scope "Abandon"))
 
 (defun systemd-scope-Slice (bus path)
   "Read only property."
@@ -1597,9 +1597,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-scope "TasksCurrent"))
 
-(defun systemd-scope-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-scope "GetProcesses" args))
+(defun systemd-scope-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-scope "GetProcesses"))
 
 (defun systemd-scope-Delegate (bus path)
   "Read only property."
@@ -1969,9 +1969,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-service "TasksCurrent"))
 
-(defun systemd-service-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-service "GetProcesses" args))
+(defun systemd-service-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-service "GetProcesses"))
 
 (defun systemd-service-Delegate (bus path)
   "Read only property."
@@ -2596,9 +2596,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-slice "TasksCurrent"))
 
-(defun systemd-slice-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-slice "GetProcesses" args))
+(defun systemd-slice-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-slice "GetProcesses"))
 
 (defun systemd-slice-Delegate (bus path)
   "Read only property."
@@ -3003,9 +3003,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-socket "TasksCurrent"))
 
-(defun systemd-socket-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-socket "GetProcesses" args))
+(defun systemd-socket-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-socket "GetProcesses"))
 
 (defun systemd-socket-Delegate (bus path)
   "Read only property."
@@ -3670,9 +3670,9 @@
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-swap "TasksCurrent"))
 
-(defun systemd-swap-GetProcesses (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-swap "GetProcesses" args))
+(defun systemd-swap-GetProcesses (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-swap "GetProcesses"))
 
 (defun systemd-swap-Delegate (bus path)
   "Read only property."
@@ -4745,9 +4745,9 @@
   (apply #'dbus-call-method bus systemd-dbus-service path
 	 systemd-dbus-interface-unit "Kill" args))
 
-(defun systemd-unit-ResetFailed (bus path &rest args)
-  (apply #'dbus-call-method bus systemd-dbus-service path
-	 systemd-dbus-interface-unit "ResetFailed" args))
+(defun systemd-unit-ResetFailed (bus path)
+  (dbus-call-method bus systemd-dbus-service path
+		    systemd-dbus-interface-unit "ResetFailed"))
 
 (defun systemd-unit-SetProperties (bus path &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service path
