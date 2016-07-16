@@ -23,27 +23,38 @@
 ;; This package provides a front end to Systemd.
 ;;
 ;; Use `M-x systemctl-list-units RET' to see a list of all known
-;; Systemd units (on localhost) and their status.  With a prefix argument
-;; (`C-u') it will prompt for a remote host.
+;; Systemd units (on localhost) and their status.  With a prefix
+;; argument (`C-u M-x systemctl-list-units RET') you will be prompted
+;; for a remote host to connect to.
 ;;
 ;; In systemctl-list-units-mode, `RET' will visit all relevant
 ;; configuration fragments for the unit at point (the equivalent of
-;; "systemctl cat some.service").  With a `C-u' prefix argument,
-;; it will prompt for a new override.conf file to create (somewhat equivalent
-;; to "systemctl edit some.service").
+;; "systemctl cat some.service").  With a `C-u' prefix argument, it
+;; will prompt for a new override.conf file to create (somewhat
+;; equivalent to "systemctl edit some.service").  Contrary to the
+;; command-line "systemctl" tool, systemctl.el allows viewing and
+;; editing of remote unit files thanks to TRAMP.
 ;;
 ;; Key bindings `s t a r t' and `s t o p' can be used to start and stop
 ;; services.
 
 ;;; Todo:
 
+;; * Have someone with window/frame-fu see if there is a better way to
+;;   visit N files in a frame, each in a separate window.  The current approach
+;;   feels a bit crude, see `systemctl-edit-unit-files'.
 ;; * Create and bind interactive functions for enabling and disabling units.
-;; * Menu entries for `systemctl-list-units-mode'.
 ;; * Optionally automatically reload the Systemd daemon when a unit buffer is
 ;;   saved.
+;; * Detect if we are not root, and use the sudo method to edit
+;;   system files on localhost.
+;; * Add support for local and remote systemd user sessions.
+;; * Figure out what's necessary to support local and remote containers.
+;; * Menu entries for `systemctl-list-units-mode'.
 
 ;;; Code:
 
+(require 'conf-mode)
 (require 'systemd)
 (require 'tabulated-list)
 (require 'tramp)
@@ -170,7 +181,7 @@ See `tabulated-list-printer'."
     (systemctl-list-units-mode)
     (when host
       (setq systemctl-bus (systemd-remote-bus host)
-	    default-directory (systemctl-file-name "/")))
+	    default-directory (systemctl-file-name "/etc/systemd/")))
     (tabulated-list-print)
     (pop-to-buffer (current-buffer))))
 
