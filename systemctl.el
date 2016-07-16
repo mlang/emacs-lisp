@@ -44,6 +44,7 @@
 ;;   visit N files in a frame, each in a separate window.  The current approach
 ;;   feels a bit crude, see `systemctl-edit-unit-files'.
 ;; * Create and bind interactive functions for enabling and disabling units.
+;; * Finish systemd-unit-mode.
 ;; * Optionally automatically reload the Systemd daemon when a unit buffer is
 ;;   saved.
 ;; * Detect if we are not root, and use the sudo method to edit
