@@ -21,6 +21,7 @@
 ;;; Code:
 
 (require 'conf-mode)
+(require 'pcomplete)
 
 (defvar systemd-unit-font-lock-keywords
   '(;; [section]
