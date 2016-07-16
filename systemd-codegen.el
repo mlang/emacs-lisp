@@ -36,9 +36,10 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'dbus)
 
-(defconst systemd-codegen-interfaces
+(defvar systemd-codegen-interfaces
   '(("org.freedesktop.systemd1.Manager"
      :prefix "systemd"
      :interface systemd-dbus-interface-manager)
