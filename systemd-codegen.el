@@ -196,19 +196,18 @@
 				    (lambda (arg)
 				      (string= "in"
 					       (xml-get-attribute arg 'direction)))
-				    (xml-get-children interface-item 'arg))))
-			(push `(defun ,name (bus ,@(when object-interface
-						     '(path))
-						 ,@(when args '(&rest args)))
-				 ,(if args
-				    `(apply #'dbus-call-method
-					bus ,service
-					,(if object-interface 'path path)
-					,interface ,method args)
-				    `(dbus-call-method
-				      bus ,service
-				      ,(if object-interface 'path path)
-				      ,interface ,method)))
+				    (xml-get-children interface-item 'arg)))
+			     (arglist `(bus ,@(when object-interface
+						'(path))
+					    ,@(when args '(&rest args)))))
+			(push `(defun ,name ,arglist
+				 (,@(if args
+					'(apply #'dbus-call-method)
+				      '(dbus-call-method))
+				  bus ,service
+				  ,(if object-interface 'path path)
+				  ,interface ,method
+				  ,@(when args '(args))))
 			      forms)))))))))))))
        ((and (listp item) (eq 'node (xml-node-name item)))
 	(let ((name (xml-get-attribute-or-nil item 'name)))
