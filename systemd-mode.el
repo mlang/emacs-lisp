@@ -18,6 +18,10 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+;;; Todo:
+
+;; * Add support for systemd-networkd .link and .network files.
+
 ;;; Code:
 
 (require 'conf-mode)
@@ -33,36 +37,50 @@
 
 (defvar-local systemd-unit-mode-sections '("Unit" "Install"))
 
+(defvar systemd-unit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\t" #'completion-at-point)
+    map))
+
 (define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
   (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
-  (add-hook 'completion-at-point-functions #'systemd-mode-completion-at-point nil t))
+  (add-hook 'completion-at-point-functions #'systemd-mode-completion-at-point
+	    nil t)
+  (setq-local completion-ignore-case t))
 
 ;;;###autoload
 (define-derived-mode systemd-automount-mode systemd-unit-mode "Systemd-AutoMount"
+  "Major mode for editing systemd .automount unit files"
   (add-to-list 'systemd-unit-mode-sections "AutoMount"))
 
 ;;;###autoload
 (define-derived-mode systemd-mount-mode systemd-unit-mode "Systemd-Mount"
+  "Major mode for editing systemd .mount unit files"
   (add-to-list 'systemd-unit-mode-sections "Mount"))
 
 ;;;###autoload
 (define-derived-mode systemd-path-mode systemd-unit-mode "Systemd-Path"
+  "Major mode for editing systemd .path unit files"
   (add-to-list 'systemd-unit-mode-sections "Path"))
 
 ;;;###autoload
 (define-derived-mode systemd-service-mode systemd-unit-mode "Systemd-Service"
+  "Major mode for editing systemd .service unit files."
   (add-to-list 'systemd-unit-mode-sections "Service"))
 
 ;;;###autoload
 (define-derived-mode systemd-socket-mode systemd-unit-mode "Systemd-Socket"
+  "Major mode for editing systemd .socket unit files."
   (add-to-list 'systemd-unit-mode-sections "Socket"))
 
 ;;;###autoload
 (define-derived-mode systemd-swap-mode systemd-unit-mode "Systemd-Swap"
+  "Major mode for editing systemd .swap unit files."
   (add-to-list 'systemd-unit-mode-sections "Swap"))
 
 ;;;###autoload
 (define-derived-mode systemd-timer-mode systemd-unit-mode "Systemd-Timer"
+  "Major mode for editing systemd .timer unit files."
   (add-to-list 'systemd-unit-mode-sections "Timer"))
 
 (defvar systemd-mode-section-keywords-alist
@@ -135,11 +153,27 @@
     ("Install"
      "Alias" "WantedBy" "RequiredBy" "Also" "DefaultInstance")))
 
-(defvar systemd-mode-section-regexp
-  (rx-to-string
-   `(and line-start
-	 ?[ (group (or ,@(mapcar #'car systemd-mode-section-keywords-alist))) ?])
-   t))
+(defvar systemd-mode-section-regexp "^\\[\\([[:alpha:]]+\\)]")
+
+(defun systemd-mode-completion-at-point ()
+  (if (save-excursion (re-search-backward systemd-mode-section-regexp nil t))
+      (let ((section (match-string-no-properties 1)))
+	(if (member-ignore-case section systemd-unit-mode-sections)
+	    (let ((keywords (cdr (assoc-ignore-case
+				  section systemd-mode-section-keywords-alist))))
+	      (when keywords
+		(let ((end (point)))
+		  (save-excursion
+		    (skip-chars-backward "[:alpha:]")
+		    (let ((start (point)))
+		      (skip-chars-backward " \t")
+		      (when (eq (line-beginning-position) (point))
+			(list start end (mapcar (lambda (str) (concat str "="))
+						  keywords))))))))
+	  (display-warning major-mode
+			   (format "Unexpected section [%s]." section)
+			   :warning)
+	  nil))))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.automount\\'" . systemd-automount-mode))
@@ -161,17 +195,6 @@
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.timer\\'" . systemd-timer-mode))
-
-(defun systemd-mode-completion-at-point ()
-  (if (save-excursion (re-search-backward systemd-mode-section-regexp nil t))
-      (let* ((section (match-string-no-properties 1))
-	     (keywords (cdr (assoc-ignore-case section systemd-mode-section-keywords-alist))))
-	(when keywords
-	  (let ((end (point)))
-	    (save-excursion
-	      (skip-chars-backward "[:alnum:]")
-	      (list (point) end (mapcar (lambda (str) (concat str "="))
-					keywords))))))))
 
 (provide 'systemd-mode)
 ;;; systemd-mode.el ends here
