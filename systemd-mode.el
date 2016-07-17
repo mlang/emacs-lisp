@@ -153,7 +153,7 @@
     ("Install"
      "Alias" "WantedBy" "RequiredBy" "Also" "DefaultInstance")))
 
-(defvar systemd-mode-section-regexp "^\\[\\([[:alpha:]]+\\)]")
+(defvar systemd-mode-section-regexp "^[ \t]*\\[\\([[:alpha:]]+\\)]")
 
 (defun systemd-mode-completion-at-point ()
   (if (save-excursion (re-search-backward systemd-mode-section-regexp nil t))
