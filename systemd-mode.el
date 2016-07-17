@@ -1,4 +1,4 @@
-;;; systemd-mode.el --- Major mode for systemd unit files  -*- lexical-binding: t; -*-
+;;; systemd-mode.el --- Major modes for systemd unit files  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2016  Mario Lang
 
