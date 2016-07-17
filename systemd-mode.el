@@ -39,17 +39,78 @@
 
 ;;;###autoload
 (define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
-  (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
-  (setq-local pcomplete-command-completion-function
-	      (lambda ()
-		(pcomplete-here '("Description" "Documentation"
-				  "Requires" "Requisite" "Wants" "BindsTo"
-				  "PartOf" "Conflicts" "Before" "After"
-				  "OnFailure" "PropagatesReloadTo" "ReloadPropagatedFrom"
-				  "JoinsNamespaceOf" "RequiresMountsFor"
-				  "OnFailureJobMode" "IgnoreOnIsolate"
-				  "StopWhenUnneeded" "RefuseManualStart" "RefuseManualStop"))))
-  (setq-local pcomplete-termination-string "="))
+  (conf-mode-initialize "#" systemd-unit-font-lock-keywords))
+
+(defvar systemd-mode-section-keywords-alist
+  ;; Currently unused
+  '(("AutoMount"
+     "Where" "DirectoryMode" "TimeoutIdleSec")
+    ("Device")
+    ("Mount"
+     "What" "Where" "Type" "Options" "SloppyOptions" "DirectoryMode"
+     "TimeoutSec")
+    ("Path"
+     "PathExists" "PathExistsGlob" "PathChanged" "PathModified"
+     "DirectoryNotEmpty" "Unit" "MakeDirectory" "DirectoryMode")
+    ("Service"
+     "Type" "RemainAfterExit" "GuessMainPID" "PIDFile" "BusName"
+     "ExecStart" "ExecStartPre" "ExecStartPost" "ExecReload"
+     "ExecStop" "ExecStopPost" "RestartSec" "TimeoutStartSec"
+     "TimeoutStopSec" "TimeoutSec" "RuntimeMaxSec" "WatchdogSec"
+     "Restart" "SuccessExitStatus" "RestartPreventExitStatus"
+     "RestartForceExitStatus" "PermissionsStartOnly"
+     "RootDirectoryStartOnly" "NonBlocking" "NotifyAccess" "Sockets"
+     "FailureAction" "FileDescriptorStoreMax" "USBFunctionDescriptors"
+     "USBFunctionStrings")
+    ("Slice")
+    ("Socket"
+     "ListenStream" "ListenDatagram" "ListenSequentialPacket"
+     "ListenFIFO" "ListenSpecial" "ListenNetlink" "ListenMessageQueue"
+     "ListenUSBFunction" "SocketProtocol" "BindIPv6Only"
+     "Backlog" "BindToDevice" "SocketUser" "SocketGroup"
+     "SocketMode" "DirectoryMode" "Accept" "Writable" "MaxConnections"
+     "KeepAlive" "KeepAliveTimeSec" "KeepAliveIntervalSec"
+     "KeepAliveProbes" "NoDelay" "Priority" "DeferAcceptSec"
+     "ReceiveBuffer" "SendBuffer" "IPTOS" "IPTTL" "Mark" "ReusePort"
+     "SmackLabel" "SmackLabelIPIn" "SmackLabelIPOut"
+     "SELinuxContextFromNet" "PipeSize" "MessageQueueMaxMessages"
+     "MessageQueueMessageSize" "FreeBind" "Transparent" "Broadcast"
+     "PassCredentials" "PassSecurity" "TCPCongestion" "ExecStartPre"
+     "ExecStartPost" "ExecStopPre" "ExecStopPost" "TimeoutSec"
+     "Service" "RemoveOnStop" "Symlinks" "FileDescriptorName"
+     "TriggerLimitIntervalSec" "TriggerLimitBurst")
+    ("Swap"
+     "What" "Priority" "Options" "TimeoutSec")
+    ("Target")
+    ("Timer"
+     "OnActiveSec" "OnBootSec" "OnStartupSec" "OnUnitActiveSec"
+     "OnUnitInactiveSec" "OnCalendar" "AccuracySec" "RandomizedDelaySec"
+     "Unit" "Persistent" "WakeSystem" "RemainAfterElapse")
+    ("Unit"
+     "Description" "Documentation" "Requires" "Requisite" "Wants" "BindsTo"
+     "PartOf" "Conflicts" "Before" "After" "OnFailure" "PropagatesReloadTo"
+     "ReloadPropagatedFrom" "JoinsNamespaceOf" "RequiresMountsFor"
+     "OnFailureJobMode" "IgnoreOnIsolate" "StopWhenUnneeded" "RefuseManualStart"
+     "RefuseManualStop" "AllowIsolate" "DefaultDependencies"
+     "JobTimeoutSec" "JobTimeoutAction" "JobTimeoutRebootArgument"
+     "StartLimitIntervalSec" "StartLimitBurst"
+     "StartLimitAction" "RebootArgument"
+     "ConditionArchitecture" "ConditionVirtualization" "ConditionHost"
+     "ConditionKernelCommandLine" "ConditionSecurity" "ConditionCapability"
+     "ConditionACPower" "ConditionNeedsUpdate" "ConditionFirstBoot"
+     "ConditionPathExists" "ConditionPathExistsGlob" "ConditionPathIsDirectory"
+     "ConditionPathIsSymbolicLink" "ConditionPathIsMountPoint"
+     "ConditionPathIsReadWrite" "ConditionDirectoryNotEmpty"
+     "ConditionFileNotEmpty" "ConditionFileIsExecutable"
+     "AssertArchitecture" "AssertVirtualization" "AssertHost"
+     "AssertKernelCommandLine" "AssertSecurity" "AssertCapability"
+     "AssertACPower" "AssertNeedsUpdate" "AssertFirstBoot" "AssertPathExists"
+     "AssertPathExistsGlob" "AssertPathIsDirectory" "AssertPathIsSymbolicLink"
+     "AssertPathIsMountPoint" "AssertPathIsReadWrite" "AssertDirectoryNotEmpty"
+     "AssertFileNotEmpty" "AssertFileIsExecutable"
+     "SourcePath")
+    ("Install"
+     "Alias" "WantedBy" "RequiredBy" "Also" "DefaultInstance")))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-unit-mode))
