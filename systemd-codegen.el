@@ -160,10 +160,12 @@
 		  (dolist (interface-item (cddr item) (nreverse forms))
 		    (cond
 		     ((eq 'property (car-safe interface-item))
-		      (let* ((property (cdr (assq 'name (cadr interface-item))))
+		      (let* ((property (xml-get-attribute interface-item 'name))
 			     (name (intern (concat prefix "-" property)))
-			     (readwrite (string-equal "readwrite"
-						      (cdr (assq 'access (cadr interface-item)))))
+			     (readwrite
+			      (string-equal
+			       "readwrite"
+			       (xml-get-attribute interface-item 'access)))
 			     (arglist `(bus
 					,@(when object-interface
 					    '(path)))))
@@ -180,22 +182,23 @@
 			  (push (list 'gv-define-setter name (cons 'value arglist)
 				      (list '\`
 					    (list 'dbus-set-property
-						  (list '\, 'bus)
+						  '(\, bus)
 						  service
 						  (if object-interface
-						      (list '\, 'path)
+						      '(\, path)
 						    path)
 						  interface property
-						  (list '\, 'value))))
+						  '(\, value))))
 				forms))))
 
 		     ((eq 'method (car-safe interface-item))
-		      (let* ((method (xml-get-attribute-or-nil interface-item 'name))
+		      (let* ((method (xml-get-attribute interface-item 'name))
 			     (name (intern (concat prefix "-" method)))
 			     (args (cl-remove-if-not
 				    (lambda (arg)
 				      (string= "in"
-					       (xml-get-attribute arg 'direction)))
+					       (xml-get-attribute
+						arg 'direction)))
 				    (xml-get-children interface-item 'arg)))
 			     (arglist `(bus ,@(when object-interface '(path))
 					    ,@(when args '(&rest args)))))
