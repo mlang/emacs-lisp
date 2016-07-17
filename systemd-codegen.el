@@ -228,7 +228,7 @@
       (dolist (form forms)
 	(pp form (current-buffer))
 	(insert "\n")))
-    (delete-backward-char 1)
+    (delete-char -1)
     (emacs-lisp-mode)
     (goto-char (point-min))
     (while (re-search-forward "^(\\(defun\\|gv-define-setter\\)" nil t)
