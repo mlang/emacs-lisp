@@ -233,7 +233,7 @@
     (goto-char (point-min))
     (while (re-search-forward "^(\\(defun\\|gv-define-setter\\)" nil t)
       (goto-char (match-beginning 0))
-      (down-list 1) (forward-sexp 2) (delete-forward-char 4) (up-list 1))
+      (down-list 1) (forward-sexp 2) (delete-char 4) (up-list 1))
     (goto-char (point-min))
     (while (re-search-forward "(dbus-\\(get\\|set\\)-property" nil t)
       (goto-char (match-beginning 0))
