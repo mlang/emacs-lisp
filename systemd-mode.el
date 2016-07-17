@@ -59,7 +59,6 @@
   (add-to-list 'systemd-unit-mode-sections "Timer"))
 
 (defvar systemd-mode-section-keywords-alist
-  ;; Currently unused
   '(("AutoMount"
      "Where" "DirectoryMode" "TimeoutIdleSec")
     ("Device")
