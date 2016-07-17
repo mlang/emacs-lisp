@@ -214,11 +214,9 @@
 			    service (concat path "/" name) interfaces))))))))
 
 (defmacro systemd-codegen-define (suffix)
-  `(progn
-     ,@(apply #'nconc (mapcar #'cdr
-			      (systemd-codegen-introspect
-			       (concat "org.freedesktop." suffix)
-			       (concat "/org/freedesktop/" suffix))))))
+  (cons 'progn (cl-mapcan #'cdr (systemd-codegen-introspect
+				 (concat "org.freedesktop." suffix)
+				 (concat "/org/freedesktop/" suffix)))))
 
 (defun systemd-codegen-to-string (suffix)
   (with-temp-buffer
@@ -254,4 +252,4 @@
     (buffer-string)))
 
 (provide 'systemd-codegen)
-;;; systemd.el ends here
+;;; systemd-codegen.el ends here
