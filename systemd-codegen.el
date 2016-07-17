@@ -197,8 +197,7 @@
 				      (string= "in"
 					       (xml-get-attribute arg 'direction)))
 				    (xml-get-children interface-item 'arg)))
-			     (arglist `(bus ,@(when object-interface
-						'(path))
+			     (arglist `(bus ,@(when object-interface '(path))
 					    ,@(when args '(&rest args)))))
 			(push `(defun ,name ,arglist
 				 (,@(if args
@@ -216,12 +215,10 @@
 
 (defmacro systemd-codegen-define (suffix)
   `(progn
-     ,@(apply
-	#'append
-	(mapcar #'cdr
-		(systemd-codegen-introspect
-		 (concat "org.freedesktop." suffix)
-		 (concat "/org/freedesktop/" suffix))))))
+     ,@(apply #'nconc (mapcar #'cdr
+			      (systemd-codegen-introspect
+			       (concat "org.freedesktop." suffix)
+			       (concat "/org/freedesktop/" suffix))))))
 
 (defun systemd-codegen-to-string (suffix)
   (with-temp-buffer
@@ -232,8 +229,8 @@
       (insert ";;; " interface "\n\n")
       (dolist (form forms)
 	(pp form (current-buffer))
-	(insert "\n"))
-      (delete-backward-char 1))
+	(insert "\n")))
+    (delete-backward-char 1)
     (emacs-lisp-mode)
     (goto-char (point-min))
     (while (re-search-forward "^(\\(defun\\|gv-define-setter\\)" nil t)

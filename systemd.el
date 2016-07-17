@@ -82,6 +82,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-automount "TimeoutIdleUSec"))
+
 ;;; org.freedesktop.systemd1.BusName
 
 (defconst systemd-dbus-interface-bus-name "org.freedesktop.systemd1.BusName")
@@ -115,6 +116,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-bus-name "AcceptFileDescriptors"))
+
 ;;; org.freedesktop.systemd1.Device
 
 (defconst systemd-dbus-interface-device "org.freedesktop.systemd1.Device")
@@ -123,6 +125,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-device "SysFSPath"))
+
 ;;; org.freedesktop.systemd1.Manager
 
 (defconst systemd-dbus-interface-manager "org.freedesktop.systemd1.Manager")
@@ -834,6 +837,7 @@
 (defun systemd-SetExitCode (bus &rest args)
   (apply #'dbus-call-method bus systemd-dbus-service systemd-dbus-path
 	 systemd-dbus-interface-manager "SetExitCode" args))
+
 ;;; org.freedesktop.systemd1.Mount
 
 (defconst systemd-dbus-interface-mount "org.freedesktop.systemd1.Mount")
@@ -1521,6 +1525,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-mount "SendSIGHUP"))
+
 ;;; org.freedesktop.systemd1.Path
 
 (defconst systemd-dbus-interface-path "org.freedesktop.systemd1.Path")
@@ -1549,6 +1554,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-path "Result"))
+
 ;;; org.freedesktop.systemd1.Scope
 
 (defconst systemd-dbus-interface-scope "org.freedesktop.systemd1.Scope")
@@ -1745,6 +1751,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-scope "SendSIGHUP"))
+
 ;;; org.freedesktop.systemd1.Service
 
 (defconst systemd-dbus-interface-service "org.freedesktop.systemd1.Service")
@@ -2567,6 +2574,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-service "SendSIGHUP"))
+
 ;;; org.freedesktop.systemd1.Slice
 
 (defconst systemd-dbus-interface-slice "org.freedesktop.systemd1.Slice")
@@ -2724,6 +2732,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-slice "TasksMax"))
+
 ;;; org.freedesktop.systemd1.Socket
 
 (defconst systemd-dbus-interface-socket "org.freedesktop.systemd1.Socket")
@@ -3601,6 +3610,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-socket "SendSIGHUP"))
+
 ;;; org.freedesktop.systemd1.Swap
 
 (defconst systemd-dbus-interface-swap "org.freedesktop.systemd1.Swap")
@@ -4268,9 +4278,11 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-swap "SendSIGHUP"))
+
 ;;; org.freedesktop.systemd1.Target
 
 (defconst systemd-dbus-interface-target "org.freedesktop.systemd1.Target")
+
 ;;; org.freedesktop.systemd1.Timer
 
 (defconst systemd-dbus-interface-timer "org.freedesktop.systemd1.Timer")
@@ -4339,6 +4351,7 @@
   "Read only property."
   (dbus-get-property bus systemd-dbus-service path
 		     systemd-dbus-interface-timer "RemainAfterElapse"))
+
 ;;; org.freedesktop.systemd1.Unit
 
 (defconst systemd-dbus-interface-unit "org.freedesktop.systemd1.Unit")
