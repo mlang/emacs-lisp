@@ -159,8 +159,8 @@
   (if (save-excursion (re-search-backward systemd-mode-section-regexp nil t))
       (let ((section (match-string-no-properties 1)))
 	(if (member-ignore-case section systemd-unit-mode-sections)
-	    (let ((keywords (cdr (assoc-ignore-case
-				  section systemd-mode-section-keywords-alist))))
+	    (let ((keywords (cdr (assoc-string
+				  section systemd-mode-section-keywords-alist t))))
 	      (when keywords
 		(let ((end (point)))
 		  (save-excursion
