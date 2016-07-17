@@ -31,16 +31,12 @@
      1 'font-lock-variable-name-face))
   "Keywords to highlight in Conf mode.")
 
-(defvar systemd-unit-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "\t" #'pcomplete)
-    map))
-
 (defvar-local systemd-unit-mode-sections '("Unit" "Install"))
 
 ;;;###autoload
 (define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
-  (conf-mode-initialize "#" systemd-unit-font-lock-keywords))
+  (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
+  (add-hook 'completion-at-point-functions #'systemd-mode-completion-at-point nil t))
 
 ;;;###autoload
 (define-derived-mode systemd-automount-mode systemd-unit-mode "Systemd-AutoMount"
@@ -133,6 +129,12 @@
     ("Install"
      "Alias" "WantedBy" "RequiredBy" "Also" "DefaultInstance")))
 
+(defvar systemd-mode-section-regexp
+  (rx-to-string
+   `(and line-start
+	 ?[ (group (or ,@(mapcar #'car systemd-mode-section-keywords-alist))) ?])
+   t))
+
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.automount\\'" . systemd-automount-mode))
 
@@ -147,6 +149,17 @@
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.timer\\'" . systemd-timer-mode))
+
+(defun systemd-mode-completion-at-point ()
+  (if (save-excursion (re-search-backward systemd-mode-section-regexp nil t))
+      (let* ((section (match-string-no-properties 1))
+	     (keywords (cdr (assoc-ignore-case section systemd-mode-section-keywords-alist))))
+	(when keywords
+	  (let ((end (point)))
+	    (save-excursion
+	      (skip-chars-backward "[:alnum:]")
+	      (list (point) end (mapcar (lambda (str) (concat str "="))
+					keywords))))))))
 
 (provide 'systemd-mode)
 ;;; systemd-mode.el ends here
