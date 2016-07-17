@@ -33,7 +33,6 @@
 
 (defvar-local systemd-unit-mode-sections '("Unit" "Install"))
 
-;;;###autoload
 (define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
   (conf-mode-initialize "#" systemd-unit-font-lock-keywords)
   (add-hook 'completion-at-point-functions #'systemd-mode-completion-at-point nil t))
@@ -47,12 +46,20 @@
   (add-to-list 'systemd-unit-mode-sections "Mount"))
 
 ;;;###autoload
+(define-derived-mode systemd-path-mode systemd-unit-mode "Systemd-Path"
+  (add-to-list 'systemd-unit-mode-sections "Path"))
+
+;;;###autoload
 (define-derived-mode systemd-service-mode systemd-unit-mode "Systemd-Service"
   (add-to-list 'systemd-unit-mode-sections "Service"))
 
 ;;;###autoload
 (define-derived-mode systemd-socket-mode systemd-unit-mode "Systemd-Socket"
   (add-to-list 'systemd-unit-mode-sections "Socket"))
+
+;;;###autoload
+(define-derived-mode systemd-swap-mode systemd-unit-mode "Systemd-Swap"
+  (add-to-list 'systemd-unit-mode-sections "Swap"))
 
 ;;;###autoload
 (define-derived-mode systemd-timer-mode systemd-unit-mode "Systemd-Timer"
@@ -141,10 +148,16 @@
 (add-to-list 'auto-mode-alist '("\\.mount\\'" . systemd-mount-mode))
 
 ;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.path\\'" . systemd-path-mode))
+
+;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-service-mode))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.socket\\'" . systemd-socket-mode))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.swap\\'" . systemd-swap-mode))
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.timer\\'" . systemd-timer-mode))
