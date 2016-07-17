@@ -23,7 +23,7 @@
 ;; This package provides a front end to Systemd.
 ;;
 ;; Use `M-x systemctl-list-units RET' to see a list of all known
-;; Systemd units (on localhost) and their status.  With a prefix
+;; Systemd units and their status on localhost.  With a prefix
 ;; argument (`C-u M-x systemctl-list-units RET') you will be prompted
 ;; for a remote host to connect to.
 ;;
@@ -36,14 +36,14 @@
 ;; editing of remote unit files thanks to TRAMP.
 ;;
 ;; Key bindings `s t a r t' and `s t o p' can be used to start and stop
-;; services.
+;; services.  Similarily, `e n a b l e' and `d i s a b l e' can be used to
+;; permanently enable and disable unit files.
 
 ;;; Todo:
 
 ;; * Have someone with window/frame-fu see if there is a better way to
 ;;   visit N files in a frame, each in a separate window.  The current approach
 ;;   feels a bit crude, see `systemctl-edit-unit-files'.
-;; * Create and bind interactive functions for enabling and disabling units.
 ;; * Optionally automatically reload the Systemd daemon when a unit buffer is
 ;;   saved.
 ;; * Detect if we are not root, and use the sudo method to edit
@@ -115,6 +115,8 @@ to a remote machine.")
     (define-key map "f" #'systemctl-find-fragment)
     (define-key map "start" #'systemctl-start)
     (define-key map "stop"  #'systemctl-stop)
+    (define-key map "enable" #'systemctl-enable)
+    (define-key map "disable" #'systemctl-disable)
     map)
   "Keymap for `systemctl-list-units-mode'.")
 
@@ -205,6 +207,27 @@ See `tabulated-list-printer'."
   (systemd-StopUnit (systemctl-bus) unit "replace")
   (when (eq major-mode 'systemctl-list-units-mode)
     (tabulated-list-revert)))
+
+(defun systemctl-enable (unit)
+  "Enable Systemd UNIT."
+  (interactive (list (or (systemctl-list-units-get-unit)
+                         (read-string "Unit: "))))
+  (pcase (systemd-EnableUnitFiles (systemctl-bus) (list unit) nil nil)
+    (`(,carries-install-info ,changes)
+     (if changes
+	 (pcase-dolist (`(,type ,from ,to) changes)
+	   (message "%s %s -> %s" type from to))
+       (message "No changes")))))
+
+(defun systemctl-disable (unit)
+  "Disable Systemd UNIT."
+  (interactive (list (or (systemctl-list-units-get-unit)
+                         (read-string "Unit: "))))
+  (let ((changes (systemd-DisableUnitFiles (systemctl-bus) (list unit) nil)))
+    (if changes
+	(pcase-dolist (`(,type ,from ,to) changes)
+	  (message "%s %s -> %s" type from to))
+      (message "No changes"))))
 
 (defun systemctl-file-name (file-name)
   (if (and (stringp systemctl-bus)
