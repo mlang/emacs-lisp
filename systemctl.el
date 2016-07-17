@@ -68,8 +68,8 @@
 
 (defcustom systemctl-list-units-format
   (vector (list "Unit" 22 t)
-          (list "Active" 9 t)
-          (list "Loaded" 8 t)
+          (list "Loaded" 9 t)
+          (list "Active" 8 t)
           (list "State" 8 t)
           (list "Description" 50 nil))
   "Column format specification for the `systemctl-list-units' command."
@@ -78,11 +78,11 @@
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
-                 (list :tag "Active"
+                 (list :tag "Loaded"
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
-                 (list :tag "Loaded"
+                 (list :tag "Active"
                        (string :tag "Title")
                        (number :tag "Width")
                        (boolean :tag "Sortable"))
@@ -228,6 +228,11 @@ See `tabulated-list-printer'."
 	(pcase-dolist (`(,type ,from ,to) changes)
 	  (message "%s %s -> %s" type from to))
       (message "No changes"))))
+
+(defun systemctl-reload ()
+  "Reload all unit files."
+  (interactive)
+  (systemd-Reload (systemctl-bus)))
 
 (defun systemctl-file-name (file-name)
   (if (and (stringp systemctl-bus)
