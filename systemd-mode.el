@@ -21,7 +21,6 @@
 ;;; Code:
 
 (require 'conf-mode)
-(require 'pcomplete)
 
 (defvar systemd-unit-font-lock-keywords
   '(;; [section]
@@ -37,9 +36,31 @@
     (define-key map "\t" #'pcomplete)
     map))
 
+(defvar-local systemd-unit-mode-sections '("Unit" "Install"))
+
 ;;;###autoload
 (define-derived-mode systemd-unit-mode conf-unix-mode "Systemd-Unit"
   (conf-mode-initialize "#" systemd-unit-font-lock-keywords))
+
+;;;###autoload
+(define-derived-mode systemd-automount-mode systemd-unit-mode "Systemd-AutoMount"
+  (add-to-list 'systemd-unit-mode-sections "AutoMount"))
+
+;;;###autoload
+(define-derived-mode systemd-mount-mode systemd-unit-mode "Systemd-Mount"
+  (add-to-list 'systemd-unit-mode-sections "Mount"))
+
+;;;###autoload
+(define-derived-mode systemd-service-mode systemd-unit-mode "Systemd-Service"
+  (add-to-list 'systemd-unit-mode-sections "Service"))
+
+;;;###autoload
+(define-derived-mode systemd-socket-mode systemd-unit-mode "Systemd-Socket"
+  (add-to-list 'systemd-unit-mode-sections "Socket"))
+
+;;;###autoload
+(define-derived-mode systemd-timer-mode systemd-unit-mode "Systemd-Timer"
+  (add-to-list 'systemd-unit-mode-sections "Timer"))
 
 (defvar systemd-mode-section-keywords-alist
   ;; Currently unused
@@ -113,10 +134,19 @@
      "Alias" "WantedBy" "RequiredBy" "Also" "DefaultInstance")))
 
 ;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-unit-mode))
+(add-to-list 'auto-mode-alist '("\\.automount\\'" . systemd-automount-mode))
 
 ;;;###autoload
-(add-to-list 'auto-mode-alist '("\\.timer\\'" . systemd-unit-mode))
+(add-to-list 'auto-mode-alist '("\\.mount\\'" . systemd-mount-mode))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.service\\'" . systemd-service-mode))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.socket\\'" . systemd-socket-mode))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.timer\\'" . systemd-timer-mode))
 
 (provide 'systemd-mode)
 ;;; systemd-mode.el ends here
